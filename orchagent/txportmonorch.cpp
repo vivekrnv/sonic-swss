@@ -224,7 +224,11 @@ void swss::TxPortMonOrch::doTask(Consumer& consumer){
     }
 }
 
-/* Returns 0 on success */
+/*
+ * Returns 0 on success
+ 	      -1 in something failed
+ 	       1 Invalid Parameters
+*/
 int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<FieldValueTuple>& data, bool clear){
 
 	try {
@@ -251,6 +255,7 @@ int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<
 					}
 					else{
 						SWSS_LOG_ERROR("TxPortMonOrch::handleThresholdUpdate getPort id failed for port %s", port.c_str());
+						throw 20;
 					}
 				}
 				else{
@@ -259,6 +264,7 @@ int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<
 
 				if (!fetchTxErrorStats(port, existingCount, port_id)){
 					SWSS_LOG_ERROR("TxPortMonOrch::handleThresholdUpdate fetching error count from CounterDB failed for port %s", port.c_str());
+					throw 20;
 				}
 
 				// Fill in the states
@@ -269,7 +275,7 @@ int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<
 				swss::txPortThreshold(fields) = static_cast<uint64_t>(stoull(fvValue(payload)));
 
 				m_TxErrorTable.emplace(port, fields);
-				SWSS_LOG_INFO("TxPortMonOrch::handleThresholdUpdate Stats added for port %s, id : lx, Err_count %ld", port, port_id, existingCount);
+				SWSS_LOG_INFO("TxPortMonOrch::handleThresholdUpdate Details added/Updated for port %s, id : lx, Err_count %ld, Threshold_set %ld", port, swss::txPortId(fields), swss::txPortErrCount(fields), swss::txPortThreshold(fields));
 
 				this->flushToStateDb(port);
 			}
@@ -277,12 +283,13 @@ int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<
 			{
 				SWSS_LOG_ERROR("TxPortMonOrch::handleThresholdUpdate Unknown field type %s when handle threshold for %s\n",
 							   fvField(payload).c_str(), port.c_str());
-				return -1;
+				return 1;
 			}
 		}
 	}
 	catch (...){
-
+		SWSS_LOG_ERROR("TxPortMonOrch::handleThresholdUpdate failed for port %s\n", port.c_str());
+		return -1;
 	}
 
 	return 0;
