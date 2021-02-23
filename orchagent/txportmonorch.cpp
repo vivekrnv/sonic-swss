@@ -146,11 +146,19 @@ int swss::TxPortMonOrch::handlePeriodUpdate(const vector<FieldValueTuple>& data)
 			return -1;
 		}
 
-		if (restart){
-			m_pollTimer->stop();
+		/* Shutdown clears complete state and application state */
+		if (shutdown){
+			m_pollTimer->stop(); // Stop the timer
+			for (auto port : m_TxErrorTable){
+				m_stateTxErrorTable->del(port.first); // Clear everything from the swss::STATE_TX_ERROR_TABLE
+				SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate Everything cleared in %s table for the port %s\n", swss::STATE_TX_ERROR_TABLE, port.first.c_str());
+			}
+			m_TxErrorTable.clear(); //Clean everything from Local Map
+			SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate Complete Application data has been cleared ");
+
 		}
 
-		if (shutdown){
+		if (restart){
 			startTimer(m_pollPeriod);
 			SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate TX_ERR poll timer restarted with interval %d\n", m_pollPeriod);
 		}
@@ -195,7 +203,7 @@ void swss::TxPortMonOrch::doTask(Consumer& consumer){
 			}
 			else
 			{
-			    SWSS_LOG_ERROR("TxPortMonOrch::doTask Unknown Operation %s for Config Update On: in TxPortMonOrch::doTask  \n", op.c_str(), key.c_str());
+			    SWSS_LOG_ERROR("TxPortMonOrch::doTask Unknown Operation %s for Pooling Period Config Update\n", op.c_str(), key.c_str());
 			}
 		}
 		// TODO : Check if the key is a valid alias of interface
@@ -207,7 +215,7 @@ void swss::TxPortMonOrch::doTask(Consumer& consumer){
 			 }
 			else if (op == DEL_COMMAND)
 			{
-				//reset to default
+				//remove entry from state table and local map
 				return_status = handleThresholdUpdate(key, fvs, true);
 			}
 			else
@@ -216,8 +224,8 @@ void swss::TxPortMonOrch::doTask(Consumer& consumer){
 			}
 		}
 
-		if (return_status){
-		     SWSS_LOG_ERROR("TxPortMonOrch::doTask Handle configuration update failed index %s\n", key.c_str());
+		if (return_status < 0){
+		     SWSS_LOG_ERROR("TxPortMonOrch::FAIL Not in the Correct State, error reported on port: %s\n", key.c_str());
 		}
 
 		consumer.m_toSync.erase(it++);
@@ -227,7 +235,7 @@ void swss::TxPortMonOrch::doTask(Consumer& consumer){
 /*
  * Returns 0 on success
  	      -1 in something failed
- 	       1 Invalid Parameters
+ 	       1 Invalid Parameters recieved in the config
 */
 int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<FieldValueTuple>& data, bool clear){
 
@@ -259,6 +267,12 @@ int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<
 					}
 				}
 				else{
+					// if threshold already same, don't do anything
+					if (swss::txPortThreshold(m_TxErrorTable[port]) == static_cast<uint64_t>(stoull(fvValue(payload)))) {
+						SWSS_LOG_INFO("TxPortMonOrch::handleThresholdUpdate Parameter has not changed for threshold on port %s, in recent config update", port.c_str());
+						return 0;
+					}
+
 					port_id = swss::txPortId(m_TxErrorTable[port]);
 				}
 
