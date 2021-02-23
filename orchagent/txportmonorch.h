@@ -79,7 +79,6 @@ namespace swss{
 		std::shared_ptr<Table> m_countersTable;
 
 		uint32_t m_pollPeriod;
-      	//	uint32_t m_threshold;
 
 		SelectableTimer* m_pollTimer;
 
@@ -97,7 +96,7 @@ namespace swss{
 		int fetchTxErrorStats(const string& port, uint64_t& currentCount, const sai_object_id_t& port_id);
 
 		/* Returns 0 on success.... Uses the state from TxErrorStatMap */
-		int flushToStateDb(const string& port);
+		int writeToStateDb(const string& port);
 
 	public:
 

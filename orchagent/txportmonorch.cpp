@@ -57,13 +57,14 @@ void swss::TxPortMonOrch::doTask(SelectableTimer &timer){
 	 this->pollErrorStatistics();
 }
 
+/* Pools error stats from counter db for a port and updates the state accordingly */
 int swss::TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorStats &stat){
 
 	if (m_TxErrorTable.find(port) == m_TxErrorTable.end()){
 		SWSS_LOG_ERROR("TX_ERR_APPL: Error table should be pre-populated before polling current statistics");
 	}
 
-	std::vector<FieldValueTuple> prevStats = m_TxErrorTable[port];
+//	std::vector<FieldValueTuple> prevStats = m_TxErrorTable[port];
 
 	return 0;
 }
@@ -75,100 +76,26 @@ void swss::TxPortMonOrch::pollErrorStatistics(){
 
 	KeyOpFieldsValuesTuple portEntry;
 
-	for (auto entry : m_PortsTxErrStat){
+	for (auto entry : m_TxErrorTable){
 
 		std::vector<FieldValueTuple> fields;
 		int rc;
 
-		SWSS_LOG_INFO("TxPortMonOrch::TX_ERR_APPL: port %s prev tx_error_stat %ld \n", entry.first.c_str(),
+		SWSS_LOG_INFO("TxPortMonOrch::pollErrorStatistics:Port %s BEFORE-POLL tx_error_stat %ld \n", entry.first.c_str(),
 		                        swss::txPortErrCount(entry.second));
 
 		rc = this->pollOnePortErrorStatistics(entry.first, entry.second);
 		if (rc != 0)
-			SWSS_LOG_ERROR("TxPortMonOrch::TX_ERR_APPL: port %s tx_error_stat failed %d\n", entry.first.c_str(), rc);
+			SWSS_LOG_ERROR("TxPortMonOrch::pollErrorStatistics: port %s tx_error_stat failed %d\n", entry.first.c_str(), rc);
 
-		fields.emplace_back(swss::APPL_STATS, to_string(swss::txPortErrCount(entry.second)));
-		fields.emplace_back(swss::APPL_TIMESTAMP, currentDateTime().c_str());
-		fields.emplace_back(swss::APPL_SAIPORTID, to_string(swss::txPortId(entry.second)));
+		SWSS_LOG_INFO("TxPortMonOrch::pollErrorStatistics:Port %s AFTER-POLL tx_error_stat %ld \n", entry.first.c_str(),
+				                        swss::txPortErrCount(entry.second));
 
-		if (m_TxErrorTable.find(entry.first) != m_TxErrorTable.end()){
-			m_TxErrorTable[entry.first] = fields;
-		}
-		else{ // This shouldn't be reached
-			SWSS_LOG_INFO("TxPortMonOrch::TxPortMonOrch: old entry of port %s is not present - should not be happenig\n", entry.first.c_str());
-			m_TxErrorTable.emplace(entry.first, fields);
-		}
-
-		SWSS_LOG_INFO("TxPortMonOrch::TX_ERR_APPL: port %s tx_error_stat %ld, push to in-memory db\n", entry.first.c_str(),
-				swss::txPortErrCount(entry.second));
 	}
 
-	m_stateTxErrorTable->flush();
-	SWSS_LOG_INFO("TxPortMonOrch::TX_ERR_STATE: flushing tables\n");
+	SWSS_LOG_INFO("TxPortMonOrch::pollErrorStatistics Polling completed for all ports");
 }
 
-/* Returns 0 on success */
-int swss::TxPortMonOrch::handlePeriodUpdate(const vector<FieldValueTuple>& data){
-
-
-
-	bool restart = false;
-	bool shutdown = false;
-
-	SWSS_LOG_ENTER();
-
-
-	//	if (data.size() > 1){
-	//		SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate Update Size > 1: Check With Redis-subscription mechanism inside SWSS");
-	//	}
-
-	//Only the latest update is bothered about
-	try {
-		FieldValueTuple payload = *data.rbegin();
-
-		if (fvField(payload) == swss::TXPORTMONORCH_FIELD_CFG_PERIOD){
-
-			uint32_t periodToSet = static_cast<uint32_t>(fvValue(payload));
-
-			if (periodToSet == 0){
-				shutdown = true;
-			}
-			else if(periodToSet != m_pollPeriod){
-				restart = true;
-				m_pollPeriod = periodToSet;
-			}
-			else{
-				// do nothing
-			}
-		}
-		else{
-			SWSS_LOG_ERROR("TxPortMonOrch::handlePeriodUpdate Unknown field type %s\n", fvField(payload).c_str());
-			return -1;
-		}
-
-		/* Shutdown clears complete state and application state */
-		if (shutdown){
-			m_pollTimer->stop(); // Stop the timer
-			for (auto port : m_TxErrorTable){
-				m_stateTxErrorTable->del(port.first); // Clear everything from the swss::STATE_TX_ERROR_TABLE
-				SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate Everything cleared in %s table for the port %s\n", swss::STATE_TX_ERROR_TABLE, port.first.c_str());
-			}
-			m_TxErrorTable.clear(); //Clean everything from Local Map
-			SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate Complete Application data has been cleared ");
-
-		}
-
-		if (restart){
-			startTimer(m_pollPeriod);
-			SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate TX_ERR poll timer restarted with interval %d\n", m_pollPeriod);
-		}
-	}
-	catch (...){
-		SWSS_LOG_ERROR("TxPortMonOrch::handlePeriodUpdate Failed to handle period update\n");
-	}
-
-	return 0;
-}
 
 /* Handle Configuration Update */
 /* Can include either polling-period, threshold or both*/
@@ -232,6 +159,71 @@ void swss::TxPortMonOrch::doTask(Consumer& consumer){
     }
 }
 
+
+/* Returns 0 on success */
+int swss::TxPortMonOrch::handlePeriodUpdate(const vector<FieldValueTuple>& data){
+
+
+	bool restart = false;
+	bool shutdown = false;
+
+	SWSS_LOG_ENTER();
+
+
+	//	if (data.size() > 1){
+	//		SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate Update Size > 1: Check With Redis-subscription mechanism inside SWSS");
+	//	}
+
+	//Only the latest update is bothered about
+	try {
+		FieldValueTuple payload = *data.rbegin();
+
+		if (fvField(payload) == swss::TXPORTMONORCH_FIELD_CFG_PERIOD){
+
+			uint32_t periodToSet = static_cast<uint32_t>(fvValue(payload));
+
+			if (periodToSet == 0){
+				shutdown = true;
+			}
+			else if(periodToSet != m_pollPeriod){
+				restart = true;
+				m_pollPeriod = periodToSet;
+			}
+			else{
+				// do nothing
+			}
+		}
+		else{
+			SWSS_LOG_ERROR("TxPortMonOrch::handlePeriodUpdate Unknown field type %s\n", fvField(payload).c_str());
+			return -1;
+		}
+
+		/* Shutdown clears complete state and application state */
+		if (shutdown){
+			m_pollTimer->stop(); // Stop the timer
+			for (auto port : m_TxErrorTable){
+				m_stateTxErrorTable->del(port.first); // Clear everything from the swss::STATE_TX_ERROR_TABLE
+				SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate Everything cleared in %s table for the port %s\n", swss::STATE_TX_ERROR_TABLE, port.first.c_str());
+			}
+			m_TxErrorTable.clear(); //Clean everything from Local Map
+			SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate Complete Application data has been cleared ");
+
+		}
+
+		if (restart){
+			this->startTimer(m_pollPeriod);
+			SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate TX_ERR poll timer restarted with interval %d\n", m_pollPeriod);
+		}
+	}
+	catch (...){
+		SWSS_LOG_ERROR("TxPortMonOrch::handlePeriodUpdate Failed\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+
 /*
  * Returns 0 on success
  	      -1 in something failed
@@ -291,7 +283,7 @@ int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<
 				m_TxErrorTable.emplace(port, fields);
 				SWSS_LOG_INFO("TxPortMonOrch::handleThresholdUpdate Details added/Updated for port %s, id : lx, Err_count %ld, Threshold_set %ld", port, swss::txPortId(fields), swss::txPortErrCount(fields), swss::txPortThreshold(fields));
 
-				this->flushToStateDb(port);
+				this->writeToStateDb(port);
 			}
 			else
 			{
@@ -337,7 +329,7 @@ int swss::TxPortMonOrch::fetchTxErrorStats(const string& port, uint64_t& current
 	 return 0;
 }
 
-int swss::TxPortMonOrch::flushToStateDb(const string& port){
+int swss::TxPortMonOrch::writeToStateDb(const string& port){
 
 	if (m_TxErrorTable.find(port) == m_TxErrorTable.end()){
 		SWSS_LOG_INFO("TxPortMonOrch: flush invoked for port %s, which doesn't have an entry in Local Map");
@@ -353,6 +345,8 @@ int swss::TxPortMonOrch::flushToStateDb(const string& port){
 	fvs.emplace_back(swss::APPL_SAIPORTID, to_string(swss::txPortId(fields)));
 
 	m_stateTxErrorTable->set(port, fvs);
+
+	m_stateTxErrorTable->flush();
 
 	SWSS_LOG_INFO("TxPortMonOrch Flushed to State DB port %s, id : lx, state: %s", port, to_string(swss::txPortId(fields)), swss::TxStatusName[swss::txPortState(fields)]);
 
