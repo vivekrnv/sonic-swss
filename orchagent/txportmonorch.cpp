@@ -61,10 +61,26 @@ void swss::TxPortMonOrch::doTask(SelectableTimer &timer){
 int swss::TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorStats &stat){
 
 	if (m_TxErrorTable.find(port) == m_TxErrorTable.end()){
-		SWSS_LOG_ERROR("TX_ERR_APPL: Error table should be pre-populated before polling current statistics");
+		SWSS_LOG_ERROR("TxPortMonOrch::pollOnePortErrorStatistics: Local map should have been be pre-populated before polling current statistics");
+		return 0;
 	}
 
-//	std::vector<FieldValueTuple> prevStats = m_TxErrorTable[port];
+	uint64_t prevCount = swss::txPortErrCount(stat);
+	uint64_t currCount;
+
+	if (!this->fetchTxErrorStats(port, currCount, swss::txPortId(stat))){
+		SWSS_LOG_ERROR("TxPortMonOrch::pollOnePortErrorStatistics fetching error count from CounterDB failed for port %s", port.c_str());
+		return -1;
+	}
+
+	// TODO: Keep Track of last updated time and also use that info for judging if the port actually went to an error state
+	if (currCount - prevCount >= swss::txPortThreshold(stat)){
+		swss::txPortState(stat) = swss::txState::error;
+	}
+
+	swss::txPortErrCount(stat) = currCount;
+
+	this->writeToStateDb(port);
 
 	return 0;
 }
@@ -336,7 +352,7 @@ int swss::TxPortMonOrch::writeToStateDb(const string& port){
 		return -1;
 	}
 
-	auto fields = m_TxErrorTable[port];
+	auto& fields = m_TxErrorTable[port];
 
 	vector<FieldValueTuple> fvs;
 
