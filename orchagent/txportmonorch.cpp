@@ -68,20 +68,20 @@ int swss::TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorS
 		return 0;
 	}
 
-	uint64_t prevCount = swss::txPortErrCount(stat);
+	uint64_t prevCount = txPortErrCount(stat);
 	uint64_t currCount;
 
-	if (!this->fetchTxErrorStats(port, currCount, swss::txPortId(stat))){
+	if (!this->fetchTxErrorStats(port, currCount, txPortId(stat))){
 		SWSS_LOG_ERROR("TxPortMonOrch::pollOnePortErrorStatistics fetching error count from CounterDB failed for port %s", port.c_str());
 		return -1;
 	}
 
 	// TODO: Keep Track of last updated time and also use that info for judging if the port actually went to an error state
-	if (currCount - prevCount >= swss::txPortThreshold(stat)){
-		swss::txPortState(stat) = swss::txState::error;
+	if (currCount - prevCount >= txPortThreshold(stat)){
+		txPortState(stat) = swss::txState::error;
 	}
 
-	swss::txPortErrCount(stat) = currCount;
+	txPortErrCount(stat) = currCount;
 
 	this->writeToStateDb(port);
 
@@ -101,14 +101,14 @@ void swss::TxPortMonOrch::pollErrorStatistics(){
 		int rc;
 
 		SWSS_LOG_INFO("TxPortMonOrch::pollErrorStatistics:Port %s BEFORE-POLL tx_error_stat %ld \n", entry.first.c_str(),
-		                        swss::txPortErrCount(entry.second));
+		                        txPortErrCount(entry.second));
 
 		rc = this->pollOnePortErrorStatistics(entry.first, entry.second);
 		if (rc != 0)
 			SWSS_LOG_ERROR("TxPortMonOrch::pollErrorStatistics: port %s tx_error_stat failed %d\n", entry.first.c_str(), rc);
 
 		SWSS_LOG_INFO("TxPortMonOrch::pollErrorStatistics:Port %s AFTER-POLL tx_error_stat %ld \n", entry.first.c_str(),
-				                        swss::txPortErrCount(entry.second));
+				                        txPortErrCount(entry.second));
 
 	}
 
@@ -279,12 +279,12 @@ int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<
 				}
 				else{
 					// if threshold already same, don't do anything
-					if (swss::txPortThreshold(m_TxErrorTable[port]) == static_cast<uint64_t>(stoull(fvValue(payload)))) {
+					if (txPortThreshold(m_TxErrorTable[port]) == static_cast<uint64_t>(stoull(fvValue(payload)))) {
 						SWSS_LOG_INFO("TxPortMonOrch::handleThresholdUpdate Parameter has not changed for threshold on port %s, in recent config update", port.c_str());
 						return 0;
 					}
 
-					port_id = swss::txPortId(m_TxErrorTable[port]);
+					port_id = txPortId(m_TxErrorTable[port]);
 				}
 
 				if (!fetchTxErrorStats(port, existingCount, port_id)){
@@ -294,13 +294,13 @@ int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<
 
 				// Fill in the states
 				TxErrorStats fields;
-				swss::txPortState(fields) = static_cast<int8_t>(swss::txState::ok);
-				swss::txPortId(fields) = port_id;
-				swss::txPortErrCount(fields) = existingCount;
-				swss::txPortThreshold(fields) = static_cast<uint64_t>(stoull(fvValue(payload)));
+				txPortState(fields) = static_cast<int8_t>(swss::txState::ok);
+				txPortId(fields) = port_id;
+				txPortErrCount(fields) = existingCount;
+				txPortThreshold(fields) = static_cast<uint64_t>(stoull(fvValue(payload)));
 
 				m_TxErrorTable.emplace(port, fields);
-				SWSS_LOG_INFO("TxPortMonOrch::handleThresholdUpdate Details added/Updated for port %s, id : lx, Err_count %ld, Threshold_set %ld", port.c_str(), swss::txPortId(fields), swss::txPortErrCount(fields), swss::txPortThreshold(fields));
+				SWSS_LOG_INFO("TxPortMonOrch::handleThresholdUpdate Details added/Updated for port %s, id : lx, Err_count %ld, Threshold_set %ld", port.c_str(), swss::txPortId(fields), txPortErrCount(fields), txPortThreshold(fields));
 
 				this->writeToStateDb(port);
 			}
@@ -359,15 +359,15 @@ int swss::TxPortMonOrch::writeToStateDb(const string& port){
 
 	vector<FieldValueTuple> fvs;
 
-	fvs.emplace_back(TXPORTMONORCH_APPL_STATUS, TxStatusName[swss::txPortState(fields)]);
+	fvs.emplace_back(TXPORTMONORCH_APPL_STATUS, TxStatusName[txPortState(fields)]);
 	fvs.emplace_back(TXPORTMONORCH_APPL_TIMESTAMP, currentDateTime().c_str());
-	fvs.emplace_back(TXPORTMONORCH_APPL_SAIPORTID, to_string(swss::txPortId(fields)));
+	fvs.emplace_back(TXPORTMONORCH_APPL_SAIPORTID, to_string(txPortId(fields)));
 
 	m_stateTxErrorTable->set(port, fvs);
 
 	m_stateTxErrorTable->flush();
 
-	SWSS_LOG_INFO("TxPortMonOrch Flushed to State DB port %s, id : lx, state: %s", port, to_string(swss::txPortId(fields)), TxStatusName[swss::txPortState(fields)]);
+	SWSS_LOG_INFO("TxPortMonOrch Flushed to State DB port %s, id : lx, state: %s", port, to_string(txPortId(fields)), TxStatusName[txPortState(fields)]);
 
 	return 0;
 }
