@@ -19,7 +19,7 @@ const std::string currentDateTime() {
     return buf;
 }
 
-~TxPortMonOrch::TxPortMonOrch(){
+TxPortMonOrch::~TxPortMonOrch(){
 
 }
 
@@ -377,7 +377,7 @@ int TxPortMonOrch::writeToStateDb(const string& port){
 
 	m_stateTxErrorTable->flush();
 
-	SWSS_LOG_INFO("TxPortMonOrch Flushed to State DB port %s, id : lx, state: %s", port.c_str(), txPortId(fields), TxStatusName[txPortState(fields)].c_str());
+	SWSS_LOG_INFO("TxPortMonOrch Flushed to State DB port %s", port.c_str());
 
 	return 0;
 }
