@@ -23,27 +23,26 @@ extern sai_port_api_t *sai_port_api;
 extern PortsOrch*       gPortsOrch;
 
 /* Field Definitions */
-#define TXPORTMONORCH_FIELD_CFG_PERIOD "tx_error_check_period";
-#define TXPORTMONORCH_FIELD_CFG_THRESHOLD "tx_error_threshold";
-#define TXPORTMONORCH_FIELD_STATE_TX_STATE "tx_status";
+#define TXPORTMONORCH_FIELD_CFG_PERIOD "tx_error_check_period"
+#define TXPORTMONORCH_FIELD_CFG_THRESHOLD "tx_error_threshold"
+#define TXPORTMONORCH_FIELD_STATE_TX_STATE "tx_status"
 
 /* Table Names defined in Schema.h */
-#define TXPORTMONORCH_CFG_TX_ERROR_TABLE "TX_ERR_CFG";
-#define TXPORTMONORCH_STATE_TX_ERROR_TABLE  "TX_ERR_STATE";
+#define TXPORTMONORCH_CFG_TX_ERROR_TABLE "TX_ERR_CFG"
+#define TXPORTMONORCH_STATE_TX_ERROR_TABLE  "TX_ERR_STATE"
 
 /* Table to retrieve Counter Statistics */
-#define TXPORTMONORCH_COUNTERTABLE  "COUNTERS";
+#define TXPORTMONORCH_COUNTERTABLE  "COUNTERS"
 
 /* aliases for application state stored in-memory of the class */
-#define TXPORTMONORCH_APPL_STATUS  "tx_error_stats";
-#define TXPORTMONORCH_APPL_TIMESTAMP  "tx_error_verified_latest_by";
+#define TXPORTMONORCH_APPL_STATUS  "tx_error_stats"
+#define TXPORTMONORCH_APPL_TIMESTAMP  "tx_error_verified_latest_by"
 #define TXPORTMONORCH_APPL_SAIPORTID  "tx_error_portid";
-
 /* KEY */
-#define TXPORTMONORCH_KEY_CFG_PERIOD  "GLOBAL_PERIOD";
+#define TXPORTMONORCH_KEY_CFG_PERIOD  "GLOBAL_PERIOD"
 
 /* Egress Error Identifier for a port */
-#define TXPORTMONORCH_EGRESS_ERR_ID  "SAI_PORT_STAT_IF_OUT_ERRORS";
+#define TXPORTMONORCH_EGRESS_ERR_ID  "SAI_PORT_STAT_IF_OUT_ERRORS"
 
 #define TXPORTMONORCH_SEL_TIMER     "TX_ERR_COUNTERS_POLL"
 
