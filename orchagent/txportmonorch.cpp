@@ -33,7 +33,7 @@ TxPortMonOrch::TxPortMonOrch(TableConnector confDbConnector,
 
         swss::Logger::getInstance().setMinPrio(swss::Logger::SWSS_INFO);
 
-		DBConnector counters_db("COUNTERS_DB", DBConnector::DEFAULT_UNIXSOCKET, 0);
+		DBConnector counters_db("COUNTERS_DB", 0);
 
 
 		m_stateTxErrorTable = make_shared<Table>(stateDbConnector.first, stateDbConnector.second);
