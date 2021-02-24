@@ -140,7 +140,7 @@ void swss::TxPortMonOrch::doTask(Consumer& consumer){
 	    string op = kfvOp(t);
 		vector<FieldValueTuple> fvs = kfvFieldsValues(t);
 
-		SWSS_LOG_INFO("TxPortMonOrch::doTask Key: %s, Operation: \n", key.c_str(), op.c_str());
+		SWSS_LOG_INFO("TxPortMonOrch::doTask Key: %s, Operation: \n", key.c_str());
 
 		if (key == TXPORTMONORCH__KEY_CFG_PERIOD){
 
@@ -260,7 +260,7 @@ int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<
 			// Only the latest update is considered.
 			auto payload = *data.rbegin();
 
-			if (fvField(payload) == TXPORTMONORCH__FIELD_CFG_THRESHOLD){
+			if (fvField(payload) == TXPORTMONORCH_FIELD_CFG_THRESHOLD){
 
 				sai_object_id_t port_id;
 				uint64_t existingCount;
@@ -359,9 +359,9 @@ int swss::TxPortMonOrch::writeToStateDb(const string& port){
 
 	vector<FieldValueTuple> fvs;
 
-	fvs.emplace_back(swss::APPL_STATUS, swss::TxStatusName[swss::txPortState(fields)]);
-	fvs.emplace_back(swss::APPL_TIMESTAMP, currentDateTime().c_str());
-	fvs.emplace_back(swss::APPL_SAIPORTID, to_string(swss::txPortId(fields)));
+	fvs.emplace_back(TXPORTMONORCH_APPL_STATUS, swss::TxStatusName[swss::txPortState(fields)]);
+	fvs.emplace_back(TXPORTMONORCH_APPL_TIMESTAMP, currentDateTime().c_str());
+	fvs.emplace_back(TXPORTMONORCH_APPL_SAIPORTID, to_string(swss::txPortId(fields)));
 
 	m_stateTxErrorTable->set(port, fvs);
 

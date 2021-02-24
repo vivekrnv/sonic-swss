@@ -37,7 +37,7 @@ extern PortsOrch*       gPortsOrch;
 /* aliases for application state stored in-memory of the class */
 #define TXPORTMONORCH_APPL_STATUS  "tx_error_stats"
 #define TXPORTMONORCH_APPL_TIMESTAMP  "tx_error_verified_latest_by"
-#define TXPORTMONORCH_APPL_SAIPORTID  "tx_error_portid";
+#define TXPORTMONORCH_APPL_SAIPORTID  "tx_error_portid"
 /* KEY */
 #define TXPORTMONORCH_KEY_CFG_PERIOD  "GLOBAL_PERIOD"
 
@@ -58,7 +58,7 @@ namespace swss{
 	using TxErrorStatMap = std::unordered_map<std::string, TxErrorStats> ;
 
 	/* Helper Functions */
-	constexpr int8_t& txPortState(TxErrorStats& txStat) {return std::get<0>(txStat);}
+	inline int8_t& txPortState(TxErrorStats& txStat) {return std::get<0>(txStat);}
 	constexpr sai_object_id_t& txPortId(TxErrorStats& txStat) {return std::get<1>(txStat);}
 	constexpr uint64_t& txPortErrCount(TxErrorStats& txStat) {return std::get<2>(txStat);}
 	constexpr uint64_t& txPortThreshold(TxErrorStats& txStat) {return std::get<3>(txStat);}
