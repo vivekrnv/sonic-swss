@@ -19,7 +19,7 @@ const std::string currentDateTime() {
     return buf;
 }
 
-~TxPortMonOrch::TxPortMonOrch(){
+TxPortMonOrch::~TxPortMonOrch(){
 
 }
 
