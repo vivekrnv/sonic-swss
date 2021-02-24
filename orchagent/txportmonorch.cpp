@@ -221,8 +221,8 @@ int swss::TxPortMonOrch::handlePeriodUpdate(const vector<FieldValueTuple>& data)
 		if (shutdown){
 			m_pollTimer->stop(); // Stop the timer
 			for (auto port : m_TxErrorTable){
-				m_stateTxErrorTable->del(port.first); // Clear everything from the swss::STATE_TX_ERROR_TABLE
-				SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate Everything cleared in %s table for the port %s\n", TXPORTMONORCH_STATE_TX_ERROR_TABLE, port.first.c_str());
+				m_stateTxErrorTable->del(port.first); // Clear everything from the sSTATE_TX_ERROR_TABLE
+				SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate Everything cleared in state tx table for the port %s\n", port.first.c_str());
 			}
 			m_TxErrorTable.clear(); //Clean everything from Local Map
 			SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate Complete Application data has been cleared ");
