@@ -69,8 +69,6 @@ class TxPortMonOrch : public Orch
 
 	uint32_t m_pollPeriod;
 
-	/* Tx Port States */
-	enum TxState{ok, error} txState;
 
 	const std::vector<std::string> TxStatusName = {"OK", "ERROR"};
 

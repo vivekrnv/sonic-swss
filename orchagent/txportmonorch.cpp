@@ -203,7 +203,7 @@ int TxPortMonOrch::handlePeriodUpdate(const vector<FieldValueTuple>& data){
 
 		if (fvField(payload) == TXPORTMONORCH_FIELD_CFG_PERIOD){
 
-			uint32_t periodToSet = static_cast<uint32_t>(fvValue(payload));
+			uint32_t periodToSet = static_cast<uint32_t>(stoul(fvValue(payload)));
 
 			if (periodToSet == 0){
 				shutdown = true;
@@ -371,7 +371,7 @@ int TxPortMonOrch::writeToStateDb(const string& port){
 
 	m_stateTxErrorTable->flush();
 
-	SWSS_LOG_INFO("TxPortMonOrch Flushed to State DB port %s, id : lx, state: %s", port, to_string(txPortId(fields)).c_str(), TxStatusName[txPortState(fields)].c_str());
+	SWSS_LOG_INFO("TxPortMonOrch Flushed to State DB port %s, id : lx, state: %s", port.c_str(), to_string(txPortId(fields)).c_str(), TxStatusName[txPortState(fields)].c_str());
 
 	return 0;
 }
