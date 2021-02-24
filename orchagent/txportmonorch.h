@@ -46,6 +46,12 @@ extern PortsOrch*       gPortsOrch;
 
 #define TXPORTMONORCH_SEL_TIMER     "TX_ERR_COUNTERS_POLL"
 
+/* Helper Functions */
+#define txPortState std::get<0>
+#define txPortId std::get<1>
+#define txPortErrCount std::get<2>
+#define txPortThreshold std::get<3>
+
 namespace swss{
 
 	/* Tx Port States */
@@ -56,13 +62,6 @@ namespace swss{
 	/* Data Structures which represent TxError Stats */
 	using TxErrorStats = std::tuple<int8_t, sai_object_id_t, uint64_t, uint64_t>;
 	using TxErrorStatMap = std::unordered_map<std::string, TxErrorStats> ;
-
-	/* Helper Functions */
-	inline int8_t& txPortState(TxErrorStats& txStat) {return std::get<0>(txStat);}
-	inline sai_object_id_t& txPortId(TxErrorStats& txStat) {return std::get<1>(txStat);}
-	inline uint64_t& txPortErrCount(TxErrorStats& txStat) {return std::get<2>(txStat);}
-	inline uint64_t& txPortThreshold(TxErrorStats& txStat) {return std::get<3>(txStat);}
-
 
 	// Get current date/time, format is YYYY-MM-DD.HH:mm:ss
 	const std::string currentDateTime();
