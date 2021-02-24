@@ -6,6 +6,8 @@ extern PortsOrch*       gPortsOrch;
 #define TXSTATE_OK 0
 #define TXSTATE_ERR 1
 
+std::string TxStatusName[] = {"OK", "ERROR"};
+
 const std::string currentDateTime() {
     time_t     now = time(0);
     struct tm  tstruct;
@@ -15,6 +17,10 @@ const std::string currentDateTime() {
     // for more information about date/time format
     strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
     return buf;
+}
+
+~TxPortMonOrch::TxPortMonOrch(){
+
 }
 
 TxPortMonOrch::TxPortMonOrch(TableConnector confDbConnector,
@@ -364,7 +370,7 @@ int TxPortMonOrch::writeToStateDb(const string& port){
 	vector<FieldValueTuple> fvs;
 
 	fvs.emplace_back(TXPORTMONORCH_APPL_STATUS, TxStatusName[txPortState(fields)]);
-	fvs.emplace_back(TXPORTMONORCH_APPL_TIMESTAMP, currentDateTime().c_str());
+	fvs.emplace_back(TXPORTMONORCH_APPL_TIMESTAMP, currentDateTime());
 	fvs.emplace_back(TXPORTMONORCH_APPL_SAIPORTID, to_string(txPortId(fields)));
 
 	m_stateTxErrorTable->set(port, fvs);

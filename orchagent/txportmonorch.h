@@ -70,9 +70,6 @@ class TxPortMonOrch : public Orch
 	uint32_t m_pollPeriod;
 
 
-	std::string TxStatusName[] = {"OK", "ERROR"};
-
-
 	SelectableTimer* m_pollTimer;
 
 	/* In-Memory table to keep track of Error Stats */
@@ -94,6 +91,8 @@ class TxPortMonOrch : public Orch
 public:
 
 	TxPortMonOrch(TableConnector confDbConnector, TableConnector stateDbConnector);
+
+	~TxPortMonOrch();
 
 	void doTask(Consumer& consumer);
 	void doTask(SelectableTimer &timer);
