@@ -371,7 +371,7 @@ int TxPortMonOrch::writeToStateDb(const string& port){
 
 	m_stateTxErrorTable->flush();
 
-	SWSS_LOG_INFO("TxPortMonOrch Flushed to State DB port %s, id : lx, state: %s", port.c_str(), to_string(txPortId(fields)).c_str(), TxStatusName[txPortState(fields)].c_str());
+	SWSS_LOG_INFO("TxPortMonOrch Flushed to State DB port %s, id : lx, state: %s", port.c_str(), txPortId(fields), TxStatusName[txPortState(fields)].c_str());
 
 	return 0;
 }
