@@ -1,7 +1,10 @@
 #include "txportmonorch.h"
 
+extern sai_port_api_t *sai_port_api;
+extern PortsOrch*       gPortsOrch;
 
-
+#define TXSTATE_OK 0
+#define TXSTATE_ERR 1
 
 const std::string currentDateTime() {
     time_t     now = time(0);
@@ -79,7 +82,7 @@ int TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorStats &
 
 	// TODO: Keep Track of last updated time and also use that info for judging if the port actually went to an error state
 	if (currCount - prevCount >= txPortThreshold(stat)){
-		txPortState(stat) = static_cast<int8_t>(txState::error);
+		txPortState(stat) = static_cast<int8_t>(TXSTATE_ERR);
 	}
 
 	txPortErrCount(stat) = currCount;
@@ -295,7 +298,7 @@ int TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<FieldV
 
 				// Fill in the states
 				TxErrorStats fields;
-				txPortState(fields) = static_cast<int8_t>(txState::ok);
+				txPortState(fields) = static_cast<int8_t>(TXSTATE_OK);
 				txPortId(fields) = port_id;
 				txPortErrCount(fields) = existingCount;
 				txPortThreshold(fields) = static_cast<uint64_t>(stoull(fvValue(payload)));

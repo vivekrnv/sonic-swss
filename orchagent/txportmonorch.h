@@ -17,10 +17,9 @@
 #include "port.h"
 #include "logger.h"
 #include "sai_serialize.h"
-#include "orchdaemon.h"
+//#include "orchdaemon.h"
 
-extern sai_port_api_t *sai_port_api;
-extern PortsOrch*       gPortsOrch;
+
 
 /* Field Definitions */
 #define TXPORTMONORCH_FIELD_CFG_PERIOD "tx_error_check_period"
