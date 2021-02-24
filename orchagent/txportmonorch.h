@@ -70,7 +70,7 @@ class TxPortMonOrch : public Orch
 	uint32_t m_pollPeriod;
 
 
-	const std::vector<std::string> TxStatusName = {"OK", "ERROR"};
+	std::string TxStatusName[] = {"OK", "ERROR"};
 
 
 	SelectableTimer* m_pollTimer;
