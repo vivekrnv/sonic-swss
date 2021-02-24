@@ -1,3 +1,6 @@
+#ifndef SWSS_TXMONORCH_H
+#define SWSS_TXMONORCH_H
+
 #include <memory>
 #include <unordered_map>
 #include <tuple>
@@ -98,5 +101,7 @@ class TxPortMonOrch : public Orch
         /* Returns 0 on success.... Uses the state from TxErrorStatMap */
         int writeToStateDb(const string& port);
 };
+
+#endif
 
 
