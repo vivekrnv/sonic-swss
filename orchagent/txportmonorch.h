@@ -64,38 +64,39 @@ const std::string currentDateTime();
 
 class TxPortMonOrch : public Orch
 {
-	std::shared_ptr<Table> m_stateTxErrorTable;
-	std::shared_ptr<Table> m_countersTable;
+    public:
 
-	uint32_t m_pollPeriod;
+        TxPortMonOrch(TableConnector confDbConnector, TableConnector stateDbConnector);
+
+        ~TxPortMonOrch();
+
+        void doTask(Consumer& consumer);
+        void doTask(SelectableTimer &timer);
+
+    private:
+        std::shared_ptr<Table> m_stateTxErrorTable;
+        std::shared_ptr<Table> m_countersTable;
+
+        uint32_t m_pollPeriod;
 
 
-	SelectableTimer* m_pollTimer;
+        SelectableTimer* m_pollTimer;
 
-	/* In-Memory table to keep track of Error Stats */
-	TxErrorStatMap m_TxErrorTable;
+        /* In-Memory table to keep track of Error Stats */
+        TxErrorStatMap m_TxErrorTable;
 
-	void startTimer(uint32_t interval);
-	int handlePeriodUpdate(const vector<FieldValueTuple>& data);
-	int handleThresholdUpdate(const string &key, const vector<FieldValueTuple>& data, bool clear);
-	int pollOnePortErrorStatistics(const string &port, TxErrorStats &stat);
-	void pollErrorStatistics();
+        void startTimer(uint32_t interval);
+        int handlePeriodUpdate(const vector<FieldValueTuple>& data);
+        int handleThresholdUpdate(const string &key, const vector<FieldValueTuple>& data, bool clear);
+        int pollOnePortErrorStatistics(const string &port, TxErrorStats &stat);
+        void pollErrorStatistics();
 
-	/* fetch Error Stats from Counter DB */
-	/* Returns 0 on success */
-	int fetchTxErrorStats(const string& port, uint64_t& currentCount, const sai_object_id_t& port_id);
+        /* fetch Error Stats from Counter DB */
+        /* Returns 0 on success */
+        int fetchTxErrorStats(const string& port, uint64_t& currentCount, const sai_object_id_t& port_id);
 
-	/* Returns 0 on success.... Uses the state from TxErrorStatMap */
-	int writeToStateDb(const string& port);
-
-public:
-
-	TxPortMonOrch(TableConnector confDbConnector, TableConnector stateDbConnector);
-
-	~TxPortMonOrch();
-
-	void doTask(Consumer& consumer);
-	void doTask(SelectableTimer &timer);
+        /* Returns 0 on success.... Uses the state from TxErrorStatMap */
+        int writeToStateDb(const string& port);
 };
 
 
