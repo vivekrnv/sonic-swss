@@ -304,7 +304,7 @@ int TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<FieldV
 				txPortThreshold(fields) = static_cast<uint64_t>(stoull(fvValue(payload)));
 
 				m_TxErrorTable.emplace(port, fields);
-				SWSS_LOG_INFO("TxPortMonOrch::handleThresholdUpdate Details added/Updated for port %s, id : lx, Err_count %ld, Threshold_set %ld", port.c_str(), txPortId(fields), txPortErrCount(fields), txPortThreshold(fields));
+				SWSS_LOG_INFO("TxPortMonOrch::handleThresholdUpdate Details added/Updated for port %s, Err_count %ld, Threshold_set %ld", port.c_str(), txPortErrCount(fields), txPortThreshold(fields));
 
 				this->writeToStateDb(port);
 			}
@@ -355,7 +355,7 @@ int TxPortMonOrch::fetchTxErrorStats(const string& port, uint64_t& currentCount,
 int TxPortMonOrch::writeToStateDb(const string& port){
 
 	if (m_TxErrorTable.find(port) == m_TxErrorTable.end()){
-		SWSS_LOG_INFO("TxPortMonOrch: flush invoked for port %s, which doesn't have an entry in Local Map");
+		SWSS_LOG_INFO("TxPortMonOrch: flush invoked for port %s, which doesn't have an entry in Local Map", port.c_str());
 		return -1;
 	}
 
@@ -371,7 +371,7 @@ int TxPortMonOrch::writeToStateDb(const string& port){
 
 	m_stateTxErrorTable->flush();
 
-	SWSS_LOG_INFO("TxPortMonOrch Flushed to State DB port %s, id : lx, state: %s", port, to_string(txPortId(fields)), TxStatusName[txPortState(fields)]);
+	SWSS_LOG_INFO("TxPortMonOrch Flushed to State DB port %s, id : lx, state: %s", port, to_string(txPortId(fields)).c_str(), TxStatusName[txPortState(fields)].c_str());
 
 	return 0;
 }
