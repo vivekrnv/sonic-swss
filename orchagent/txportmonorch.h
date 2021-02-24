@@ -54,11 +54,6 @@ extern PortsOrch*       gPortsOrch;
 
 namespace swss{
 
-	/* Tx Port States */
-	enum class txState{ // Scoped Enum
-		ok, error
-	};
-
 	/* Data Structures which represent TxError Stats */
 	using TxErrorStats = std::tuple<int8_t, sai_object_id_t, uint64_t, uint64_t>;
 	using TxErrorStatMap = std::unordered_map<std::string, TxErrorStats> ;

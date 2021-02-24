@@ -1,5 +1,10 @@
 #include "txportmonorch.h"
 
+/* Tx Port States */
+enum txState{
+		ok, error
+};
+
 const std::vector<std::string> TxStatusName = {"OK", "ERROR"};
 
 const std::string currentDateTime() {
@@ -69,7 +74,7 @@ int swss::TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorS
 	}
 
 	uint64_t prevCount = txPortErrCount(stat);
-	uint64_t currCount;
+	uint64_t currCount;swss::txState
 
 	if (!this->fetchTxErrorStats(port, currCount, txPortId(stat))){
 		SWSS_LOG_ERROR("TxPortMonOrch::pollOnePortErrorStatistics fetching error count from CounterDB failed for port %s", port.c_str());
@@ -78,7 +83,7 @@ int swss::TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorS
 
 	// TODO: Keep Track of last updated time and also use that info for judging if the port actually went to an error state
 	if (currCount - prevCount >= txPortThreshold(stat)){
-		txPortState(stat) = swss::txState::error;
+		txPortState(stat) = static_cast<int8_t>(txState::error);
 	}
 
 	txPortErrCount(stat) = currCount;
@@ -142,7 +147,7 @@ void swss::TxPortMonOrch::doTask(Consumer& consumer){
 
 		SWSS_LOG_INFO("TxPortMonOrch::doTask Key: %s, Operation: \n", key.c_str());
 
-		if (key == TXPORTMONORCH__KEY_CFG_PERIOD){
+		if (key == TXPORTMONORCH_KEY_CFG_PERIOD){
 
 			if (op == SET_COMMAND){
 				return_status = handlePeriodUpdate(fvs);
@@ -294,7 +299,7 @@ int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<
 
 				// Fill in the states
 				TxErrorStats fields;
-				txPortState(fields) = static_cast<int8_t>(swss::txState::ok);
+				txPortState(fields) = static_cast<int8_t>(txState::ok);
 				txPortId(fields) = port_id;
 				txPortErrCount(fields) = existingCount;
 				txPortThreshold(fields) = static_cast<uint64_t>(stoull(fvValue(payload)));
