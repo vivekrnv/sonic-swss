@@ -1,8 +1,8 @@
 #include "txportmonorch.h"
 
-const std::string TxStatusName[] = {"OK", "ERROR"};
+const std::vector<std::string> TxStatusName = {"OK", "ERROR"};
 
-inline const std::string currentDateTime() {
+const std::string currentDateTime() {
     time_t     now = time(0);
     struct tm  tstruct;
     char       buf[80];

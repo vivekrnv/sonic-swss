@@ -59,13 +59,13 @@ namespace swss{
 
 	/* Helper Functions */
 	inline int8_t& txPortState(TxErrorStats& txStat) {return std::get<0>(txStat);}
-	constexpr sai_object_id_t& txPortId(TxErrorStats& txStat) {return std::get<1>(txStat);}
-	constexpr uint64_t& txPortErrCount(TxErrorStats& txStat) {return std::get<2>(txStat);}
-	constexpr uint64_t& txPortThreshold(TxErrorStats& txStat) {return std::get<3>(txStat);}
+	inline sai_object_id_t& txPortId(TxErrorStats& txStat) {return std::get<1>(txStat);}
+	inline uint64_t& txPortErrCount(TxErrorStats& txStat) {return std::get<2>(txStat);}
+	inline uint64_t& txPortThreshold(TxErrorStats& txStat) {return std::get<3>(txStat);}
 
 
 	// Get current date/time, format is YYYY-MM-DD.HH:mm:ss
-	inline const std::string currentDateTime();
+	const std::string currentDateTime();
 
 	/* In-Memory Application data helper functions */
     // Constexpr int8_t& m_portID(TxErrorStats& txStat) {return std::get<0>(txStat);}
