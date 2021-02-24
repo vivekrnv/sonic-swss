@@ -220,8 +220,8 @@ bool OrchDaemon::init()
 
     gNatOrch = new NatOrch(m_applDb, m_stateDb, nat_tables, gRouteOrch, gNeighOrch);
 
-    TableConnector stateDbTxErr(m_stateDb, /*"TX_ERR_STATE"*/swss::STATE_TX_ERROR_TABLE);
-    TableConnector confDbTxErr(m_configDb, /*"TX_ERR_CFG"*/swss::CFG_TX_ERROR_TABLE);
+    TableConnector stateDbTxErr(m_stateDb, /*"TX_ERR_STATE"*/ TXPORTMONORCH_STATE_TX_ERROR_TABLE);
+    TableConnector confDbTxErr(m_configDb, /*"TX_ERR_CFG"*/TXPORTMONORCH_CFG_TX_ERROR_TABLE);
     gTxPortMonOrch = new TxPortMonOrch(confDbTxErr, stateDbTxErr);
 
     /*

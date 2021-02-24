@@ -1,5 +1,6 @@
 #include "txportmonorch.h"
 
+const std::string TxStatusName[] = {"OK", "ERROR"};
 
 inline const std::string currentDateTime() {
     time_t     now = time(0);
@@ -21,12 +22,12 @@ swss::TxPortMonOrch::TxPortMonOrch(TableConnector confDbConnector,
 		DBConnector counters_db("APPL_DB", 0);
 
 		m_stateTxErrorTable = make_shared<Table>(stateDbConnector.first, stateDbConnector.second);
-		m_countersTable = make_shared<Table>(&counters_db, swss::COUNTERTABLE);
+		m_countersTable = make_shared<Table>(&counters_db, TXPORTMONORCH_COUNTERTABLE);
 
 
 		/* Create an Executor with a Configurable PollTimer */
 		m_pollTimer = new SelectableTimer(timespec { .tv_sec = 0, .tv_nsec = 0 });
-		Orch::addExecutor(new ExecutableTimer(m_pollTimer, this, swss::TXPORTMONORCH_POLL_EXECUTOR_NAME));
+		Orch::addExecutor(new ExecutableTimer(m_pollTimer, this, TXPORTMONORCH_SEL_TIMER));
 
 
 		SWSS_LOG_NOTICE("TxMonPortOrch initialized with table %s %s %s\n",
@@ -141,7 +142,7 @@ void swss::TxPortMonOrch::doTask(Consumer& consumer){
 
 		SWSS_LOG_INFO("TxPortMonOrch::doTask Key: %s, Operation: \n", key.c_str(), op.c_str());
 
-		if (key == swss::TXPORTMONORCH_KEY_CFG_PERIOD){
+		if (key == TXPORTMONORCH__KEY_CFG_PERIOD){
 
 			if (op == SET_COMMAND){
 				return_status = handlePeriodUpdate(fvs);
@@ -196,7 +197,7 @@ int swss::TxPortMonOrch::handlePeriodUpdate(const vector<FieldValueTuple>& data)
 	try {
 		FieldValueTuple payload = *data.rbegin();
 
-		if (fvField(payload) == swss::TXPORTMONORCH_FIELD_CFG_PERIOD){
+		if (fvField(payload) == TXPORTMONORCH__FIELD_CFG_PERIOD){
 
 			uint32_t periodToSet = static_cast<uint32_t>(fvValue(payload));
 
@@ -221,7 +222,7 @@ int swss::TxPortMonOrch::handlePeriodUpdate(const vector<FieldValueTuple>& data)
 			m_pollTimer->stop(); // Stop the timer
 			for (auto port : m_TxErrorTable){
 				m_stateTxErrorTable->del(port.first); // Clear everything from the swss::STATE_TX_ERROR_TABLE
-				SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate Everything cleared in %s table for the port %s\n", swss::STATE_TX_ERROR_TABLE, port.first.c_str());
+				SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate Everything cleared in %s table for the port %s\n", TXPORTMONORCH_STATE_TX_ERROR_TABLE, port.first.c_str());
 			}
 			m_TxErrorTable.clear(); //Clean everything from Local Map
 			SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate Complete Application data has been cleared ");
@@ -259,7 +260,7 @@ int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<
 			// Only the latest update is considered.
 			auto payload = *data.rbegin();
 
-			if (swss::TXPORTMONORCH_FIELD_CFG_THRESHOLD == fvField(payload)){
+			if (fvField(payload) == TXPORTMONORCH__FIELD_CFG_THRESHOLD){
 
 				sai_object_id_t port_id;
 				uint64_t existingCount;
