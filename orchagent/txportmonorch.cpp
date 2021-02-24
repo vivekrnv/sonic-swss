@@ -1,11 +1,7 @@
 #include "txportmonorch.h"
 
-/* Tx Port States */
-enum txState{
-		ok, error
-};
 
-const std::vector<std::string> TxStatusName = {"OK", "ERROR"};
+
 
 const std::string currentDateTime() {
     time_t     now = time(0);
@@ -18,7 +14,7 @@ const std::string currentDateTime() {
     return buf;
 }
 
-swss::TxPortMonOrch::TxPortMonOrch(TableConnector confDbConnector,
+TxPortMonOrch::TxPortMonOrch(TableConnector confDbConnector,
 		TableConnector stateDbConnector) :
 		Orch(confDbConnector.first, confDbConnector.second),
 		m_pollPeriod(0)
@@ -40,7 +36,7 @@ swss::TxPortMonOrch::TxPortMonOrch(TableConnector confDbConnector,
 		                    confDbConnector.second.c_str());
 }
 
-void swss::TxPortMonOrch::startTimer(uint32_t interval)
+void TxPortMonOrch::startTimer(uint32_t interval)
 {
     SWSS_LOG_ENTER();
 
@@ -60,13 +56,13 @@ void swss::TxPortMonOrch::startTimer(uint32_t interval)
     }
 }
 
-void swss::TxPortMonOrch::doTask(SelectableTimer &timer){
+void TxPortMonOrch::doTask(SelectableTimer &timer){
 	 SWSS_LOG_INFO("TxMonOrch: doTask invoked with timer update\n");
 	 this->pollErrorStatistics();
 }
 
 /* Pools error stats from counter db for a port and updates the state accordingly */
-int swss::TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorStats &stat){
+int TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorStats &stat){
 
 	if (m_TxErrorTable.find(port) == m_TxErrorTable.end()){
 		SWSS_LOG_ERROR("TxPortMonOrch::pollOnePortErrorStatistics: Local map should have been be pre-populated before polling current statistics");
@@ -74,7 +70,7 @@ int swss::TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorS
 	}
 
 	uint64_t prevCount = txPortErrCount(stat);
-	uint64_t currCount;swss::txState
+	uint64_t currCount;
 
 	if (!this->fetchTxErrorStats(port, currCount, txPortId(stat))){
 		SWSS_LOG_ERROR("TxPortMonOrch::pollOnePortErrorStatistics fetching error count from CounterDB failed for port %s", port.c_str());
@@ -94,7 +90,7 @@ int swss::TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorS
 }
 
 
-void swss::TxPortMonOrch::pollErrorStatistics(){
+void TxPortMonOrch::pollErrorStatistics(){
 
 	SWSS_LOG_ENTER();
 
@@ -123,7 +119,7 @@ void swss::TxPortMonOrch::pollErrorStatistics(){
 
 /* Handle Configuration Update */
 /* Can include either polling-period, threshold or both*/
-void swss::TxPortMonOrch::doTask(Consumer& consumer){
+void TxPortMonOrch::doTask(Consumer& consumer){
 
 	SWSS_LOG_ENTER();
 	SWSS_LOG_INFO("TxPortMonOrch::doTask Config Update\n");
@@ -185,7 +181,7 @@ void swss::TxPortMonOrch::doTask(Consumer& consumer){
 
 
 /* Returns 0 on success */
-int swss::TxPortMonOrch::handlePeriodUpdate(const vector<FieldValueTuple>& data){
+int TxPortMonOrch::handlePeriodUpdate(const vector<FieldValueTuple>& data){
 
 
 	bool restart = false;
@@ -253,7 +249,7 @@ int swss::TxPortMonOrch::handlePeriodUpdate(const vector<FieldValueTuple>& data)
  	      -1 in something failed
  	       1 Invalid Parameters recieved in the config
 */
-int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<FieldValueTuple>& data, bool clear){
+int TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<FieldValueTuple>& data, bool clear){
 
 	try {
 		if (clear){
@@ -305,7 +301,7 @@ int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<
 				txPortThreshold(fields) = static_cast<uint64_t>(stoull(fvValue(payload)));
 
 				m_TxErrorTable.emplace(port, fields);
-				SWSS_LOG_INFO("TxPortMonOrch::handleThresholdUpdate Details added/Updated for port %s, id : lx, Err_count %ld, Threshold_set %ld", port.c_str(), swss::txPortId(fields), txPortErrCount(fields), txPortThreshold(fields));
+				SWSS_LOG_INFO("TxPortMonOrch::handleThresholdUpdate Details added/Updated for port %s, id : lx, Err_count %ld, Threshold_set %ld", port.c_str(), txPortId(fields), txPortErrCount(fields), txPortThreshold(fields));
 
 				this->writeToStateDb(port);
 			}
@@ -325,7 +321,7 @@ int swss::TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<
 	return 0;
 }
 
-int swss::TxPortMonOrch::fetchTxErrorStats(const string& port, uint64_t& currentCount, const sai_object_id_t& port_id){
+int TxPortMonOrch::fetchTxErrorStats(const string& port, uint64_t& currentCount, const sai_object_id_t& port_id){
 
 	vector<FieldValueTuple> fieldValues;
 
@@ -353,7 +349,7 @@ int swss::TxPortMonOrch::fetchTxErrorStats(const string& port, uint64_t& current
 	 return 0;
 }
 
-int swss::TxPortMonOrch::writeToStateDb(const string& port){
+int TxPortMonOrch::writeToStateDb(const string& port){
 
 	if (m_TxErrorTable.find(port) == m_TxErrorTable.end()){
 		SWSS_LOG_INFO("TxPortMonOrch: flush invoked for port %s, which doesn't have an entry in Local Map");

@@ -52,51 +52,54 @@ extern PortsOrch*       gPortsOrch;
 #define txPortErrCount std::get<2>
 #define txPortThreshold std::get<3>
 
-namespace swss{
 
-	/* Data Structures which represent TxError Stats */
-	using TxErrorStats = std::tuple<int8_t, sai_object_id_t, uint64_t, uint64_t>;
-	using TxErrorStatMap = std::unordered_map<std::string, TxErrorStats> ;
+/* Data Structures which represent TxError Stats */
+using TxErrorStats = std::tuple<int8_t, sai_object_id_t, uint64_t, uint64_t>;
+using TxErrorStatMap = std::unordered_map<std::string, TxErrorStats> ;
 
-	// Get current date/time, format is YYYY-MM-DD.HH:mm:ss
-	const std::string currentDateTime();
+// Get current date/time, format is YYYY-MM-DD.HH:mm:ss
+const std::string currentDateTime();
 
-	/* In-Memory Application data helper functions */
-    // Constexpr int8_t& m_portID(TxErrorStats& txStat) {return std::get<0>(txStat);}
+/* In-Memory Application data helper functions */
+// Constexpr int8_t& m_portID(TxErrorStats& txStat) {return std::get<0>(txStat);}
 
-	class TxPortMonOrch : public Orch
-	{
-		std::shared_ptr<Table> m_stateTxErrorTable;
-		std::shared_ptr<Table> m_countersTable;
+class TxPortMonOrch : public Orch
+{
+	std::shared_ptr<Table> m_stateTxErrorTable;
+	std::shared_ptr<Table> m_countersTable;
 
-		uint32_t m_pollPeriod;
+	uint32_t m_pollPeriod;
 
-		SelectableTimer* m_pollTimer;
+	/* Tx Port States */
+	enum TxState{ok, error} txState;
 
-		/* In-Memory table to keep track of Error Stats */
-		TxErrorStatMap m_TxErrorTable;
+	const std::vector<std::string> TxStatusName = {"OK", "ERROR"};
 
-		void startTimer(uint32_t interval);
-		int handlePeriodUpdate(const vector<FieldValueTuple>& data);
-		int handleThresholdUpdate(const string &key, const vector<FieldValueTuple>& data, bool clear);
-		int pollOnePortErrorStatistics(const string &port, TxErrorStats &stat);
-		void pollErrorStatistics();
 
-		/* fetch Error Stats from Counter DB */
-		/* Returns 0 on success */
-		int fetchTxErrorStats(const string& port, uint64_t& currentCount, const sai_object_id_t& port_id);
+	SelectableTimer* m_pollTimer;
 
-		/* Returns 0 on success.... Uses the state from TxErrorStatMap */
-		int writeToStateDb(const string& port);
+	/* In-Memory table to keep track of Error Stats */
+	TxErrorStatMap m_TxErrorTable;
 
-	public:
+	void startTimer(uint32_t interval);
+	int handlePeriodUpdate(const vector<FieldValueTuple>& data);
+	int handleThresholdUpdate(const string &key, const vector<FieldValueTuple>& data, bool clear);
+	int pollOnePortErrorStatistics(const string &port, TxErrorStats &stat);
+	void pollErrorStatistics();
 
-		TxPortMonOrch(TableConnector confDbConnector, TableConnector stateDbConnector);
+	/* fetch Error Stats from Counter DB */
+	/* Returns 0 on success */
+	int fetchTxErrorStats(const string& port, uint64_t& currentCount, const sai_object_id_t& port_id);
 
-		void doTask(Consumer& consumer);
-		void doTask(SelectableTimer &timer);
-	};
+	/* Returns 0 on success.... Uses the state from TxErrorStatMap */
+	int writeToStateDb(const string& port);
 
-}
+public:
+
+	TxPortMonOrch(TableConnector confDbConnector, TableConnector stateDbConnector);
+
+	void doTask(Consumer& consumer);
+	void doTask(SelectableTimer &timer);
+};
 
 
