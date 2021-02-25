@@ -330,7 +330,13 @@ int TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<FieldV
 				txPortErrCount(fields) = existingCount;
 				txPortThreshold(fields) = static_cast<uint64_t>(stoull(fvValue(payload)));
 
-				m_TxErrorTable.emplace(port, fields);
+				if (m_TxErrorTable.find(port) == m_TxErrorTable.end()){
+				    m_TxErrorTable.emplace(port, fields);
+				}
+				else{
+				    m_TxErrorTable[port] = fields;
+				}
+
 				SWSS_LOG_INFO("TxPortMonOrch::handleThresholdUpdate Details added/Updated for port %s, Err_count %ld, Threshold_set %ld", port.c_str(), txPortErrCount(fields), txPortThreshold(fields));
 
 				this->writeToStateDb(port);
