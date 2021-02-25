@@ -80,6 +80,8 @@ class TxPortMonOrch : public Orch
         std::shared_ptr<Table> m_stateTxErrorTable;
         std::shared_ptr<Table> m_countersTable;
 
+        std::shared_ptr<DBConnector> m_countersDb;
+
         uint32_t m_pollPeriod;
 
 

@@ -35,11 +35,10 @@ TxPortMonOrch::TxPortMonOrch(TableConnector confDbConnector,
 
         swss::Logger::getInstance().setMinPrio(swss::Logger::SWSS_INFO);
 
-		DBConnector *counters_db = new DBConnector("COUNTERS_DB", 0);
-
+        m_countersDb = make_shared<DBConnector>("COUNTERS_DB", 0);
 
 		m_stateTxErrorTable = make_shared<Table>(stateDbConnector.first, stateDbConnector.second);
-		m_countersTable = make_shared<Table>(counters_db, TXPORTMONORCH_COUNTERTABLE);
+		m_countersTable = make_shared<Table>(m_countersDb.get(), TXPORTMONORCH_COUNTERTABLE);
 
 
 		/* Create an Executor with a Configurable PollTimer */
@@ -80,6 +79,10 @@ void TxPortMonOrch::doTask(SelectableTimer &timer){
 /* Pools error stats from counter db for a port and updates the state accordingly */
 int TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorStats &stat){
 
+    if (txPortState(stat) == TXSTATE_ERR){
+        SWSS_LOG_CRITICAL("TxPortMonOrch Port %s (%s) already in ERROR State and will stay until polling feature is disabled",port.c_str(), sai_serialize_object_id(txPortId(stat)).c_str());
+        return 0;
+    }
 
 	if (m_TxErrorTable.find(port) == m_TxErrorTable.end()){
 		SWSS_LOG_NOTICE("TxPortMonOrch::pollOnePortErrorStatistics: Local map should have been be pre-populated before polling current statistics");
@@ -114,7 +117,7 @@ int TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorStats &
 
 void TxPortMonOrch::pollErrorStatistics(){
 
-    if (m_pollperiod == 0){
+    if (m_pollPeriod == 0){
         SWSS_LOG_INFO("TxPortMonOrch: pollperiod has to be set in order to retrieve statistics");
         return ;
     }
@@ -123,7 +126,7 @@ void TxPortMonOrch::pollErrorStatistics(){
 
 	KeyOpFieldsValuesTuple portEntry;
 
-	for (auto entry : m_TxErrorTable){
+	for (auto& entry : m_TxErrorTable){
 
 		std::vector<FieldValueTuple> fields;
 		int rc;
@@ -286,7 +289,7 @@ int TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<FieldV
 		}
 		else{
 			// Only the latest update is considered.
-			auto payload = *data.rbegin();
+			auto payload = *data.begin();
 
 			if (fvField(payload) == TXPORTMONORCH_FIELD_CFG_THRESHOLD){
 
@@ -350,28 +353,16 @@ int TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<FieldV
 
 int TxPortMonOrch::fetchTxErrorStats(const string& port, uint64_t& currentCount, const sai_object_id_t& port_id){
 
-	vector<FieldValueTuple> fieldValues;
+	std::string value;
 
-	 if (m_countersTable->get(sai_serialize_object_id(port_id), fieldValues)){
-
-		 for (const auto& fv : fieldValues)
-		 {
-			 const auto field = fvField(fv);
-			 const auto value = fvValue(fv);
-
-			 if (field == TXPORTMONORCH_EGRESS_ERR_ID)
-			 {
-				 currentCount = static_cast<uint64_t>(stoul(value));
-				 SWSS_LOG_INFO("TxPortMonOrch::fetchTxErrorStats TX_ERR_POLL: %s port_sai_id: %s, found %ld %s\n", field.c_str(), sai_serialize_object_id(port_id).c_str(), currentCount, value.c_str());
-				 break;
-			 }
-		 }
-
-	 }
-	 else{
-	     SWSS_LOG_INFO("TxPortMonOrch::fetchTxErrorStats failed to fetch statistics for port %s id: %lx \n", port.c_str(), port_id);
-	     return -1;
-	 }
+     if (m_countersTable->hget(sai_serialize_object_id(port_id), TXPORTMONORCH_EGRESS_ERR_ID, value)){
+         currentCount = static_cast<uint64_t>(stoull(value));
+         SWSS_LOG_INFO("TxPortMonOrch::fetchTxErrorStats TX_ERR_POLL: port: %s (%s), found %ld %s\n", port.c_str(), sai_serialize_object_id(port_id).c_str(), currentCount, value.c_str());
+     }
+     else{
+         SWSS_LOG_INFO("TxPortMonOrch::fetchTxErrorStats failed to fetch statistics for port %s id: %s \n", port.c_str(), sai_serialize_object_id(port_id).c_str());
+         return -1;
+     }
 
 	 return 0;
 }
@@ -389,7 +380,8 @@ int TxPortMonOrch::writeToStateDb(const string& port){
 
 	fvs.emplace_back(TXPORTMONORCH_APPL_STATUS, TxStatusName[txPortState(fields)]);
 	fvs.emplace_back(TXPORTMONORCH_APPL_TIMESTAMP, currentDateTime());
-	fvs.emplace_back(TXPORTMONORCH_APPL_SAIPORTID, to_string(txPortId(fields)));
+	fvs.emplace_back(TXPORTMONORCH_APPL_SAIPORTID, sai_serialize_object_id(txPortId(fields)));
+	fvs.emplace_back("tx_error_threshold", to_string(txPortThreshold(fields)));
 
 	m_stateTxErrorTable->set(port, fvs);
 
