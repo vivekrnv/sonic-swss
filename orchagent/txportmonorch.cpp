@@ -6,6 +6,8 @@ extern PortsOrch*       gPortsOrch;
 #define TXSTATE_OK 0
 #define TXSTATE_ERR 1
 
+#define SWSS_LOG_CRITICAL(MSG, ...)       swss::Logger::getInstance().write(swss::Logger::SWSS_CRIT,  ":- %s: " MSG, __FUNCTION__, ##__VA_ARGS__)
+
 std::string TxStatusName[] = {"OK", "ERROR"};
 
 const std::string currentDateTime() {
@@ -33,11 +35,11 @@ TxPortMonOrch::TxPortMonOrch(TableConnector confDbConnector,
 
         swss::Logger::getInstance().setMinPrio(swss::Logger::SWSS_INFO);
 
-		DBConnector counters_db("COUNTERS_DB", 0);
+		DBConnector *counters_db = new DBConnector("COUNTERS_DB", 0);
 
 
 		m_stateTxErrorTable = make_shared<Table>(stateDbConnector.first, stateDbConnector.second);
-		m_countersTable = make_shared<Table>(&counters_db, TXPORTMONORCH_COUNTERTABLE);
+		m_countersTable = make_shared<Table>(counters_db, TXPORTMONORCH_COUNTERTABLE);
 
 
 		/* Create an Executor with a Configurable PollTimer */
@@ -78,15 +80,16 @@ void TxPortMonOrch::doTask(SelectableTimer &timer){
 /* Pools error stats from counter db for a port and updates the state accordingly */
 int TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorStats &stat){
 
+
 	if (m_TxErrorTable.find(port) == m_TxErrorTable.end()){
-		SWSS_LOG_ERROR("TxPortMonOrch::pollOnePortErrorStatistics: Local map should have been be pre-populated before polling current statistics");
+		SWSS_LOG_NOTICE("TxPortMonOrch::pollOnePortErrorStatistics: Local map should have been be pre-populated before polling current statistics");
 		return 0;
 	}
 
 	uint64_t prevCount = txPortErrCount(stat);
 	uint64_t currCount;
 
-	if (!this->fetchTxErrorStats(port, currCount, txPortId(stat))){
+	if (this->fetchTxErrorStats(port, currCount, txPortId(stat))){
 		SWSS_LOG_ERROR("TxPortMonOrch::pollOnePortErrorStatistics fetching error count from CounterDB failed for port %s", port.c_str());
 		return -1;
 	}
@@ -94,7 +97,12 @@ int TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorStats &
 	// TODO: Keep Track of last updated time and also use that info for judging if the port actually went to an error state
 	if (currCount - prevCount >= txPortThreshold(stat)){
 		txPortState(stat) = static_cast<int8_t>(TXSTATE_ERR);
+		SWSS_LOG_CRITICAL("TxError Threshold on Port %s (%s) crossed %ld in the last %d secs as of %s an status is set to ERROR",
+		                      port.c_str(), sai_serialize_object_id(txPortId(stat)).c_str(), (unsigned long)txPortThreshold(stat), (int)m_pollPeriod, currentDateTime().c_str());
 	}
+
+	SWSS_LOG_INFO("TxPortMonOrch::pollOnePortErrorStatistics last Port update: %s (%s), State: %s, Error Count in Last Poll Period: %ld", port.c_str(),
+	                  sai_serialize_object_id(txPortId(stat)).c_str(), TxStatusName[txPortState(stat)].c_str(), currCount - prevCount);
 
 	txPortErrCount(stat) = currCount;
 
@@ -105,6 +113,11 @@ int TxPortMonOrch::pollOnePortErrorStatistics(const string &port, TxErrorStats &
 
 
 void TxPortMonOrch::pollErrorStatistics(){
+
+    if (m_pollperiod == 0){
+        SWSS_LOG_INFO("TxPortMonOrch: pollperiod has to be set in order to retrieve statistics");
+        return ;
+    }
 
 	SWSS_LOG_ENTER();
 
@@ -302,7 +315,7 @@ int TxPortMonOrch::handleThresholdUpdate(const string &port, const vector<FieldV
 					port_id = txPortId(m_TxErrorTable[port]);
 				}
 
-				if (!fetchTxErrorStats(port, existingCount, port_id)){
+				if (fetchTxErrorStats(port, existingCount, port_id)){
 					SWSS_LOG_ERROR("TxPortMonOrch::handleThresholdUpdate fetching error count from CounterDB failed for port %s", port.c_str());
 					throw 20;
 				}
@@ -349,7 +362,7 @@ int TxPortMonOrch::fetchTxErrorStats(const string& port, uint64_t& currentCount,
 			 if (field == TXPORTMONORCH_EGRESS_ERR_ID)
 			 {
 				 currentCount = static_cast<uint64_t>(stoul(value));
-				 SWSS_LOG_INFO("TxPortMonOrch::fetchTxErrorStats TX_ERR_POLL: %s found %ld %s\n", field.c_str(), currentCount, value.c_str());
+				 SWSS_LOG_INFO("TxPortMonOrch::fetchTxErrorStats TX_ERR_POLL: %s port_sai_id: %s, found %ld %s\n", field.c_str(), sai_serialize_object_id(port_id).c_str(), currentCount, value.c_str());
 				 break;
 			 }
 		 }
