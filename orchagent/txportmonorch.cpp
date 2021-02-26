@@ -262,6 +262,7 @@ int TxPortMonOrch::handlePeriodUpdate(const vector<FieldValueTuple>& data){
 
 		if (restart){
 			this->startTimer(m_pollPeriod);
+			this->pollErrorStatistics(); // When restarted Update the current stats
 			SWSS_LOG_INFO("TxPortMonOrch::handlePeriodUpdate TX_ERR poll timer restarted with interval %d\n", m_pollPeriod);
 		}
 	}
