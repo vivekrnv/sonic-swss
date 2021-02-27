@@ -36,7 +36,7 @@ TxPortMonOrch::TxPortMonOrch(TableConnector confDbConnector,
 
 		SWSS_LOG_ENTER();
 
-		swss::Logger::getInstance().setMinPrio(swss::Logger::SWSS_INFO);
+//		swss::Logger::getInstance().setMinPrio(swss::Logger::SWSS_INFO);
 
 
 		m_stateTxErrorTable = make_shared<Table>(stateDbConnector.first, stateDbConnector.second);
