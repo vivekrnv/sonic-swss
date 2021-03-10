@@ -379,7 +379,10 @@ bool CoppOrch::createPolicer(string trap_group_name, vector<sai_attribute_t> &po
     sai_status = sai_hostif_api->set_hostif_trap_group_attribute(m_trap_group_map[trap_group_name], &attr);
     if (sai_status != SAI_STATUS_SUCCESS)
     {
-        SWSS_LOG_ERROR("Failed to bind policer to trap group %s, rc=%d", trap_group_name.c_str(), sai_status);
+        SWSS_LOG_ERROR("Failed to bind policer to trap group %s, rc=%d and thus deleting the policer object %" PRIx64 "", trap_group_name.c_str(), sai_status, policer_id);
+	if (sai_policer_api->remove_policer(policer_id) != SAI_STATUS_SUCCESS){
+            SWSS_LOG_ERROR("Failed to remove the stale entry of the policer %" PRIx64 "", policer_id);
+        }
         return false;
     }
 
