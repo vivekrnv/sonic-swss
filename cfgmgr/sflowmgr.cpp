@@ -229,8 +229,8 @@ void SflowMgr::sflowCheckAndFillValues(string alias, vector<FieldValueTuple> &va
         if (m_sflowPortConfMap[alias].rate == "")
         {
             string speed = m_sflowPortConfMap[alias].speed;
-
-            if (speed != SFLOW_ERROR_SPEED_STR)
+            // Note: Programming empty string into rate will lead to an orchagent crash
+            if (speed != SFLOW_ERROR_SPEED_STR && sflowSpeedRateInitMap.find(speed) != sflowSpeedRateInitMap.end())
             {
                 rate = sflowSpeedRateInitMap[speed];
             }
