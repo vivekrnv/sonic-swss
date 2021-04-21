@@ -77,12 +77,10 @@ void SflowMgr::sflowUpdatePortInfo(Consumer &consumer)
         if (op == SET_COMMAND)
         {
             SflowPortInfo port_info;
-            bool new_port = false;
 
             auto sflowPortConf = m_sflowPortConfMap.find(key);
             if (sflowPortConf == m_sflowPortConfMap.end())
             {
-                new_port = true;
                 port_info.local_conf = false;
                 port_info.speed = SFLOW_ERROR_SPEED_STR;
                 port_info.rate = "";
@@ -97,9 +95,10 @@ void SflowMgr::sflowUpdatePortInfo(Consumer &consumer)
                 }
             }
 
-            if (new_port)
+            if (m_gEnable)
             {
-                if (m_gEnable && m_intfAllConf)
+                // If the Local Conf is already present, dont't override it even though the speed is changed
+                if (!m_sflowPortConfMap[key].local_conf && m_intfAllConf)
                 {
                     vector<FieldValueTuple> fvs;
                     sflowGetGlobalInfo(fvs, m_sflowPortConfMap[key].speed);
@@ -171,7 +170,7 @@ void SflowMgr::sflowGetGlobalInfo(vector<FieldValueTuple> &fvs, string speed)
     FieldValueTuple fv1("admin_state", "up");
     fvs.push_back(fv1);
 
-    if (speed != SFLOW_ERROR_SPEED_STR)
+    if (speed != SFLOW_ERROR_SPEED_STR && sflowSpeedRateInitMap.find(speed) != sflowSpeedRateInitMap.end())
     {
         rate = sflowSpeedRateInitMap[speed];
     }
