@@ -1,3 +1,5 @@
+import time
+
 class TestSflow:
     speed_rate_table = {
         "400000": "400000",
