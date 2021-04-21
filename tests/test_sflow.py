@@ -140,8 +140,8 @@ class TestSflow:
         1) When the Speed is Updated on the port and no local configuration has been given on the port
         Eg:
         config sflow enable
-        config interface Ethernet0 speed 25000  (Original Speed for Ethernet0 is 100G)
-        show sflow interface | grep Ethernet0   (Should see a sampling rate of 25000 not 100000)
+        config interface speed Ethernet0  25000  (Let's suppose Original Speed for Ethernet0 is 100G)
+        show sflow interface | grep Ethernet0    (Should see a sampling rate of 25000 not 100000)
         '''
         self.setup_sflow(dvs)
         appldb = dvs.get_app_db()
@@ -170,7 +170,9 @@ class TestSflow:
         appldb.wait_for_field_match("SFLOW_SESSION_TABLE", "Ethernet4", {"sample_rate": "256"})
         
         self.cdb.update_entry("PORT", "Ethernet4", {'speed' : "25000"})
-        time.sleep(0.01)
+        # The Check here is about the original value not getting changed. 
+        # If some bug was to appear, let's give it some time to get noticed
+        time.sleep(1) 
         appldb.wait_for_field_match("SFLOW_SESSION_TABLE", "Ethernet4", {"sample_rate": "256"})
     
 

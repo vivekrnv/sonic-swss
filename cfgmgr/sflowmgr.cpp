@@ -77,28 +77,37 @@ void SflowMgr::sflowUpdatePortInfo(Consumer &consumer)
         if (op == SET_COMMAND)
         {
             SflowPortInfo port_info;
+            bool new_port = false;
 
             auto sflowPortConf = m_sflowPortConfMap.find(key);
             if (sflowPortConf == m_sflowPortConfMap.end())
             {
+                new_port = true;
                 port_info.local_conf = false;
                 port_info.speed = SFLOW_ERROR_SPEED_STR;
                 port_info.rate = "";
                 port_info.admin = "";
                 m_sflowPortConfMap[key] = port_info;
             }
+
+            bool speed_change = false;
+            string new_speed = SFLOW_ERROR_SPEED_STR;
             for (auto i : values)
             {
                 if (fvField(i) == "speed")
                 {
-                    m_sflowPortConfMap[key].speed = fvValue(i);
+                    new_speed = fvValue(i);
                 }
             }
+            if (m_sflowPortConfMap[key].speed != new_speed){
+                m_sflowPortConfMap[key].speed = new_speed;
+                speed_change = true;
+            }
 
-            if (m_gEnable)
+            if (m_gEnable && m_intfAllConf)
             {
                 // If the Local Conf is already present, dont't override it even though the speed is changed
-                if (!m_sflowPortConfMap[key].local_conf && m_intfAllConf)
+                if (new_port || (speed_change && !m_sflowPortConfMap[key].local_conf))
                 {
                     vector<FieldValueTuple> fvs;
                     sflowGetGlobalInfo(fvs, m_sflowPortConfMap[key].speed);
