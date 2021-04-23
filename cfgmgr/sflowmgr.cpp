@@ -32,7 +32,7 @@ SflowMgr::SflowMgr(DBConnector *cfgDb, DBConnector *appDb, const vector<string> 
     m_intfAllConf = true;
     m_gEnable = false;
 }
-https://github.com/vivekreddynv/sonic-swss/blob/sflowmgr_fix/cfgmgr/sflowmgr.cpp
+
 void SflowMgr::sflowHandleService(bool enable)
 {
     stringstream cmd;
