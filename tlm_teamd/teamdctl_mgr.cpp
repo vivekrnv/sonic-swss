@@ -5,8 +5,6 @@
 
 #include "teamdctl_mgr.h"
 
-#define MAX_RETRY 3
-
 ///
 /// Custom function for libteamdctl logger. IT is empty to prevent libteamdctl to spam us with the error messages
 /// @param tdc teamdctl descriptor
@@ -174,12 +172,12 @@ void TeamdCtlMgr::process_add_queue()
 ///
 /// Get json dump from teamd for LAG interface with name lag_name
 /// @param lag_name a name for LAG interface
-/// @param to_retry is the flag used to do retry or not.
+/// @param num_retry number of retries if the dump is not found.
 /// @return a pair. First element of the pair is true, if the method is successful
 ///         false otherwise. If the first element is true, the second element has a dump
 ///         otherwise the second element is an empty string
 ///
-TeamdCtlDump TeamdCtlMgr::get_dump(const std::string & lag_name, bool to_retry)
+TeamdCtlDump TeamdCtlMgr::get_dump(const std::string & lag_name, int num_retry)
 {
     TeamdCtlDump res = { false, "" };
     if (has_key(lag_name))
@@ -200,12 +198,12 @@ TeamdCtlDump TeamdCtlMgr::get_dump(const std::string & lag_name, bool to_retry)
         }
         else
         {
-            // In case of failure and retry flag is set, check if it fails for MAX_RETRY times.
-            if (to_retry)
+            // In case of failure check if it fails for num_retry times.
+            if (num_retry > 0)
             {
                 if (m_lags_err_retry.find(lag_name) != m_lags_err_retry.end())
                 {
-                    if (m_lags_err_retry[lag_name] == MAX_RETRY)
+                    if (m_lags_err_retry[lag_name] == num_retry)
                     {
                         SWSS_LOG_ERROR("Can't get dump for LAG '%s'. Skipping", lag_name.c_str());
                         m_lags_err_retry.erase(lag_name);
@@ -215,9 +213,8 @@ TeamdCtlDump TeamdCtlMgr::get_dump(const std::string & lag_name, bool to_retry)
                 }
                 else
                 {
-
                     // This time a different lag interface errored out.
-		    m_lags_err_retry[lag_name] = 1;
+                    m_lags_err_retry[lag_name] = 1;
                 }
             }
             else
@@ -239,14 +236,14 @@ TeamdCtlDump TeamdCtlMgr::get_dump(const std::string & lag_name, bool to_retry)
 /// Get dumps for all registered LAG interfaces
 /// @return vector of pairs. Each pair first value is a name of LAG, second value is a dump
 ///
-TeamdCtlDumps TeamdCtlMgr::get_dumps(bool to_retry)
+TeamdCtlDumps TeamdCtlMgr::get_dumps(int num_retry)
 {
     TeamdCtlDumps res;
 
     for (const auto & p: m_handlers)
     {
         const auto & lag_name = p.first;
-        const auto & result = get_dump(lag_name, to_retry);
+        const auto & result = get_dump(lag_name, num_retry);
         const auto & status = result.first;
         const auto & dump = result.second;
         if (status)
@@ -257,4 +254,5 @@ TeamdCtlDumps TeamdCtlMgr::get_dumps(bool to_retry)
 
     return res;
 }
+
 

@@ -10,6 +10,8 @@
 #include "teamdctl_mgr.h"
 #include "values_store.h"
 
+#define TIMEOUT_MAX_RETRY 3
+#define DEL_NOTIF_MAX_RETRY 1
 
 bool g_run = true;
 
@@ -98,7 +100,9 @@ int main()
             if (res == swss::Select::OBJECT)
             {
                 update_interfaces(sst_lag, teamdctl_mgr);
-                values_store.update(teamdctl_mgr.get_dumps(false));
+                // A portchannel config del can cause two notifications.
+                // A SET and DEL. It triggers get_dumps for a resource which is already deleted
+                values_store.update(teamdctl_mgr.get_dumps(DEL_NOTIF_MAX_RETRY));
             }
             else if (res == swss::Select::ERROR)
             {
@@ -111,7 +115,7 @@ int main()
                 // In the case of lag removal, there is a scenario where the select::TIMEOUT
                 // occurs, it triggers get_dumps incorrectly for resource which was in process of 
                 // getting deleted. The fix here is to retry and check if this is a real failure.
-                values_store.update(teamdctl_mgr.get_dumps(true));
+                values_store.update(teamdctl_mgr.get_dumps(TIMEOUT_MAX_RETRY));
             }
             else
             {
