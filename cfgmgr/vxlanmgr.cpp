@@ -1054,21 +1054,21 @@ void VxlanMgr::getAllVxlanNetDevices()
     std::string stdout;
 
     // Get VxLan Netdev Interfaces
-    const std::string cmd = std::string("") + IP_CMD + " link show type vxlan";
+    std::string cmd = std::string("") + IP_CMD + " link show type vxlan";
     int ret = swss::exec(cmd, stdout);
     if (ret != 0)
     {
         SWSS_LOG_ERROR("Cannot get vxlan devices by command : %s", cmd.c_str());
         stdout.clear();
     }
-    auto netdevs = parseNetDev(stdout);
+    std::vector<std::string> netdevs = parseNetDev(stdout);
     for (auto netdev : netdevs){
         m_vxlanNetDevices[netdev] = VXLAN;
     }
 
     // Get VxLanIf Netdev Interfaces
-    const std::string cmd = std::string("") + IP_CMD + " link show type bridge";
-    int ret = swss::exec(cmd, stdout);
+    cmd = std::string("") + IP_CMD + " link show type bridge";
+    ret = swss::exec(cmd, stdout);
     if (ret != 0)
     {
         SWSS_LOG_ERROR("Cannot get vxlanIf devices by command : %s", cmd.c_str());
