@@ -1062,7 +1062,8 @@ void VxlanMgr::getAllVxlanNetDevices()
         stdout.clear();
     }
     std::vector<std::string> netdevs = parseNetDev(stdout);
-    for (auto netdev : netdevs){
+    for (auto netdev : netdevs)
+    {
         m_vxlanNetDevices[netdev] = VXLAN;
     }
 
@@ -1075,7 +1076,8 @@ void VxlanMgr::getAllVxlanNetDevices()
         stdout.clear();
     }
     netdevs = parseNetDev(stdout);
-    for (auto netdev : netdevs){
+    for (auto netdev : netdevs)
+    {
         if (netdev.find(VXLAN_IF_NAME_PREFIX) == 0)
         {
             m_vxlanNetDevices[netdev] = VXLAN_IF;

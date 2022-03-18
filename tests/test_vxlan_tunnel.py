@@ -324,6 +324,46 @@ class TestVxlan(object):
         create_vxlan_tunnel_entry(dvs, 'tunnel_4', 'entry_2', tunnel_map_map, 'Vlan57', '857',
                                   tunnel_map_ids, tunnel_map_entry_ids, tunnel_ids, tunnel_term_ids)
 
+def apply_test_vnet_cfg(cfg):
+
+    # create VXLAN Tunnel
+    tbl_tun = swsscommon.Table(cfg_db, "VXLAN_TUNNEL")
+    fvs_tun = swsscommon.FieldValuePairs([("src_ip", "1.1.1.1")])
+    tbl_tun.set("tunnel1", fvs_tun)
+
+    # create VNET
+    tbl_vnet = swsscommon.Table(cfg_db, "VNET")
+    fvs_vnet = swsscommon.FieldValuePairs([("vxlan_tunnel", "tunnel1"), ("vni", "1")])
+    tbl_vnet.set("Vnet1", fvs_vnet)
+
+    return tbl_tun, tbl_vnet
+
+
+@pytest.fixture
+def cfg_fixture():
+    cfg_db = swsscommon.DBConnector(swsscommon.CONFIG_DB, dvs.redis_sock, 0)
+    tbl_tun, tbl_vnet = apply_test_vnet_cfg(cfg)
+
+    yield 
+
+    tbl_tun.del("tunnel1")
+    tbl_vnet.del("Vnet1")
+
+def test_vnet_cleanup_config_reload(dvs, cfg_fixture):
+
+    # Restart vxlanmgrd Process
+    dvs.runcmd(["systemctl", "restart", "vxlanmgrd"])
+
+    # Reapply cfg to simulate cfg reload
+    cfg_db = swsscommon.DBConnector(swsscommon.CONFIG_DB, dvs.redis_sock, 0)
+    apply_test_vnet_cfg(cfg)
+
+    # Check if the vnet device is created as expected
+    stdout = dvs.runcmd_output(["ip", "link", "show", "type", "vxlan"])
+    
+    assert "Vxlan1" in stdout
+
+    pass
 
 # Add Dummy always-pass test at end as workaroud
 # for issue when Flaky fail on final test it invokes module tear-down before retrying
