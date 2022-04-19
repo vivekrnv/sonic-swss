@@ -4524,13 +4524,6 @@ bool PortsOrch::removeVlan(Port vlan)
 {
     SWSS_LOG_ENTER();
 
-    /* If there are still fdb entries associated with the VLAN,
-       return false for retry */
-    if (vlan.m_fdb_count > 0)
-    {
-        SWSS_LOG_NOTICE("VLAN %s still has assiciated FDB entries", vlan.m_alias.c_str());
-        return false;
-    }
     if (m_port_ref_count[vlan.m_alias] > 0)
     {
         SWSS_LOG_ERROR("Failed to remove ref count %d VLAN %s",
@@ -4554,6 +4547,12 @@ bool PortsOrch::removeVlan(Port vlan)
        return false;
     }
 
+    /* If there are still fdb entries associated with the VLAN,
+       notify to syslog and continue */
+    if (vlan.m_fdb_count > 0)
+    {
+        SWSS_LOG_WARN("VLAN %s still has %d FDB entries", vlan.m_alias.c_str(), vlan.m_fdb_count);
+    }
 
     if (vlan.m_vlan_info.host_intf_id && !removeVlanHostIntf(vlan))
     {
