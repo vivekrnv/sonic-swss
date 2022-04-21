@@ -174,10 +174,6 @@ bool FdbOrch::storeFdbEntryState(const FdbUpdate& update)
     }
 }
 
-/*
-Clear FDB Entry from the stateDb and decrements
-the corresponding internal fdb counters
-*/
 void FdbOrch::clearFdbEntry(const MacAddress& mac,
                             const sai_object_id_t& bv_id,
                             const string& fdb_type,
@@ -196,6 +192,7 @@ void FdbOrch::clearFdbEntry(const MacAddress& mac,
 
 /*
 Handles the SAI_FDB_EVENT_FLUSHED notification recieved from syncd
+clears stateDb and decrements corresponding internal fdb counters
 Ref: https://github.com/opencomputeproject/SAI/blob/master/inc/saifdb.h#L223
 */
 void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
