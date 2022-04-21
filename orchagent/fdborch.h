@@ -90,7 +90,7 @@ public:
     }
 
     bool bake() override;
-    void update(sai_fdb_event_t, const sai_fdb_entry_t *, sai_object_id_t);
+    void update(sai_fdb_event_t, const sai_fdb_entry_t *, sai_object_id_t, sai_int32_t);
     void update(SubjectType type, void *cntx);
     bool getPort(const MacAddress&, uint16_t, Port&);
 
@@ -122,6 +122,9 @@ private:
 
     bool storeFdbEntryState(const FdbUpdate& update);
     void notifyTunnelOrch(Port& port);
+
+    void handleSyncdFlushNotif(const sai_object_id_t&, const sai_object_id_t&, const string&, Port&, Port&, const MacAddress& mac);
+    void clearFdbEntry(const MacAddress&, const sai_object_id_t&, const string&, const Port&);
 };
 
 #endif /* SWSS_FDBORCH_H */
