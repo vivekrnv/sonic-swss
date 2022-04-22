@@ -18,7 +18,6 @@
 extern sai_fdb_api_t    *sai_fdb_api;
 
 extern sai_object_id_t  gSwitchId;
-extern PortsOrch*       gPortsOrch;
 extern CrmOrch *        gCrmOrch;
 extern MlagOrch*        gMlagOrch;
 extern Directory<Orch*> gDirectory;
@@ -691,7 +690,7 @@ void FdbOrch::doTask(Consumer& consumer)
 {
     SWSS_LOG_ENTER();
 
-    if (!gPortsOrch->allPortsReady())
+    if (!m_portsOrch->allPortsReady())
     {
         return;
     }
@@ -898,7 +897,7 @@ void FdbOrch::doTask(NotificationConsumer& consumer)
 {
     SWSS_LOG_ENTER();
 
-    if (!gPortsOrch->allPortsReady())
+    if (!m_portsOrch->allPortsReady())
     {
         return;
     }
@@ -934,7 +933,7 @@ void FdbOrch::doTask(NotificationConsumer& consumer)
                 SWSS_LOG_ERROR("Receive wrong port to flush fdb!");
                 return;
             }
-            if (!gPortsOrch->getPort(alias, port))
+            if (!m_portsOrch->getPort(alias, port))
             {
                 SWSS_LOG_ERROR("Get Port from port(%s) failed!", alias.c_str());
                 return;
@@ -955,7 +954,7 @@ void FdbOrch::doTask(NotificationConsumer& consumer)
                 SWSS_LOG_ERROR("Receive wrong vlan to flush fdb!");
                 return;
             }
-            if (!gPortsOrch->getPort(vlan, vlanPort))
+            if (!m_portsOrch->getPort(vlan, vlanPort))
             {
                 SWSS_LOG_ERROR("Get Port from vlan(%s) failed!", vlan.c_str());
                 return;
@@ -981,12 +980,12 @@ void FdbOrch::doTask(NotificationConsumer& consumer)
                 SWSS_LOG_ERROR("Receive wrong port or vlan to flush fdb!");
                 return;
             }
-            if (!gPortsOrch->getPort(alias, port))
+            if (!m_portsOrch->getPort(alias, port))
             {
                 SWSS_LOG_ERROR("Get Port from port(%s) failed!", alias.c_str());
                 return;
             }
-            if (!gPortsOrch->getPort(vlan, vlanPort))
+            if (!m_portsOrch->getPort(vlan, vlanPort))
             {
                 SWSS_LOG_ERROR("Get Port from vlan(%s) failed!", vlan.c_str());
                 return;
