@@ -5,12 +5,14 @@
 #define private public // Need to modify internal cache
 #include "portsorch.h"
 #include "fdborch.h"
+#include "crmorch.h"
 #undef private
 
 #define ETH0 "Ethernet0"
 #define VLAN40 "Vlan40"
 
 extern redisReply *mockReply;
+extern CrmOrch*  gCrmOrch;
 
 /*
 Test Fixture 
@@ -19,6 +21,7 @@ namespace fdb_syncd_flush_test
 {
     struct FdbOrchTest : public ::testing::Test
     {   
+        std::shared_ptr<swss::DBConnector> m_config_db;
         std::shared_ptr<swss::DBConnector> m_app_db;
         std::shared_ptr<swss::DBConnector> m_state_db;
         std::shared_ptr<swss::DBConnector> m_asic_db;
@@ -42,13 +45,13 @@ namespace fdb_syncd_flush_test
             auto status = sai_switch_api->create_switch(&gSwitchId, 1, &attr);
             ASSERT_EQ(status, SAI_STATUS_SUCCESS);
 
+            m_config_db = std::make_shared<swss::DBConnector>("CONFIG_DB", 0);
             m_app_db = std::make_shared<swss::DBConnector>("APPL_DB", 0);
             m_state_db = make_shared<swss::DBConnector>("STATE_DB", 0);
             m_asic_db = std::make_shared<swss::DBConnector>("ASIC_DB", 0);
 
-            TableConnector stateDbFdb(m_state_db.get(), STATE_FDB_TABLE_NAME);
-            TableConnector stateMclagDbFdb(m_state_db.get(), STATE_MCLAG_REMOTE_FDB_TABLE_NAME);
-
+            // Construct dependencies
+            // 1) Portsorch
             const int portsorch_base_pri = 40;
 
             vector<table_name_with_pri_t> ports_tables = {
@@ -58,17 +61,23 @@ namespace fdb_syncd_flush_test
                 { APP_LAG_TABLE_NAME, portsorch_base_pri + 4 },
                 { APP_LAG_MEMBER_TABLE_NAME, portsorch_base_pri }
             };
-            
-            // Construct dependencies
+
             m_portsOrch = std::make_shared<PortsOrch>(m_app_db.get(), m_state_db.get(), ports_tables, m_chassis_app_db.get());
 
+            // 2) Crmorch
+            ASSERT_EQ(gCrmOrch, nullptr);
+            gCrmOrch = new CrmOrch(m_config_db.get(), CFG_CRM_TABLE_NAME);
+            
+             // Construct fdborch
             vector<table_name_with_pri_t> app_fdb_tables = {
                 { APP_FDB_TABLE_NAME,        FdbOrch::fdborch_pri},
                 { APP_VXLAN_FDB_TABLE_NAME,  FdbOrch::fdborch_pri},
                 { APP_MCLAG_FDB_TABLE_NAME,  FdbOrch::fdborch_pri}
             };
 
-            // Construct fdborch
+            TableConnector stateDbFdb(m_state_db.get(), STATE_FDB_TABLE_NAME);
+            TableConnector stateMclagDbFdb(m_state_db.get(), STATE_MCLAG_REMOTE_FDB_TABLE_NAME);
+
             m_fdborch = std::make_shared<FdbOrch>(m_app_db.get(), 
                                                   app_fdb_tables, 
                                                   stateDbFdb,
@@ -76,7 +85,12 @@ namespace fdb_syncd_flush_test
                                                   m_portsOrch.get());
         }
 
-        virtual void TearDown() override {}
+        virtual void TearDown() override {
+            delete gCrmOrch;
+            gCrmOrch = nullptr;
+
+            ut_helper::uninitSaiApi();
+        }
     };
 
     /* Helper Methods */
