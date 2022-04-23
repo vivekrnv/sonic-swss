@@ -321,7 +321,6 @@ void FdbOrch::update(sai_fdb_event_t        type,
     if (entry->bv_id &&
         !m_portsOrch->getPort(entry->bv_id, vlan))
     {
-        /* BV_ID recieved for the FLUSH event can be an actual bv_id or bridge_port_id */
         SWSS_LOG_ERROR("FdbOrch notification type %d: Failed to locate vlan port from bv_id 0x%" PRIx64, type, entry->bv_id);
         return;
     }
