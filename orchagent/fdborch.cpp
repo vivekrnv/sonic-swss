@@ -200,7 +200,7 @@ void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
             
             if (itr->first.mac == mac || mac == flush_mac)
             {
-                bool found = m_portsOrch->getPortByBridgePortId(itr->second.bridge_port_id, port);
+                bool found = m_portsOrch->getPort(itr->first.port_name, port);
                 port_temp = found ?  port : port_empty; 
                 updates.emplace_back(itr->first.mac, itr->first.bv_id, fdb_type, port_temp, false);
             }
@@ -216,7 +216,7 @@ void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
             {
                 if (itr->first.mac == mac || mac == flush_mac)
                 {
-                    bool found = m_portsOrch->getPortByBridgePortId(itr->second.bridge_port_id, port);
+                    bool found = m_portsOrch->getPort(itr->first.port_name, port);
                     port_temp = found ?  port : port_empty; 
                     updates.emplace_back(itr->first.mac, itr->first.bv_id, fdb_type, port_temp, false);
                 }
@@ -225,19 +225,15 @@ void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
     }
     else if (bridge_port_id == SAI_NULL_OBJECT_ID)
     {
-        /* 
-        FLUSH based on BV_ID 
-        BV_ID recieved from syncd notif can be the actual bv_id or bridge_port_id 
-        Ref: https://github.com/opencomputeproject/SAI/blob/master/inc/saifdb.h#L235 
-        */
+        /* FLUSH based on BV_ID */
         for (auto itr = m_entries.begin(); itr != m_entries.end(); itr++)
         {
             if (itr->second.type.find(fdb_type) == std::string::npos) continue;
-            if (itr->first.bv_id == bv_id || itr->second.bridge_port_id == bv_id)
+            if (itr->first.bv_id == bv_id)
             {
                 if (itr->first.mac == mac || mac == flush_mac)
                 {
-                    bool found = m_portsOrch->getPortByBridgePortId(itr->second.bridge_port_id, port);
+                    bool found = m_portsOrch->getPort(itr->first.port_name, port);
                     port_temp = found ?  port : port_empty;
                     updates.emplace_back(itr->first.mac, itr->first.bv_id, fdb_type, port_temp, false);
                 }
@@ -254,7 +250,7 @@ void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
             {
                 if (itr->first.mac == mac || mac == flush_mac)
                 {
-                    bool found = m_portsOrch->getPortByBridgePortId(itr->second.bridge_port_id, port);
+                    bool found = m_portsOrch->getPort(itr->first.port_name, port);
                     port_temp = found ?  port : port_empty; 
                     updates.emplace_back(itr->first.mac, itr->first.bv_id, fdb_type, port_temp, false);
                 }
@@ -308,23 +304,24 @@ void FdbOrch::update(sai_fdb_event_t        type,
     {
         if (type == SAI_FDB_EVENT_FLUSHED)
         {
-            /* In case of flush - can be ignored due to a race.
-               There are notifications about FDB FLUSH (syncd/sai_redis) on port,
-               which was already removed by orchagent as a result of
-               removeVlanMember action (removeBridgePort) */
+            /* There are notifications about FDB FLUSH (syncd/sai_redis) on port,
+               which was already removed by orchagent as a result of removeVlanMember
+               action (removeBridgePort). But the internal cleanup of statedb and
+               internal counters is yet to be performed, thus continue
+            */
             SWSS_LOG_INFO("Flush event: Failed to get port by bridge port ID 0x%" PRIx64 ".",
                         bridge_port_id);
-
         } else {
             SWSS_LOG_ERROR("Failed to get port by bridge port ID 0x%" PRIx64 ".",
                         bridge_port_id);
+            return;
         }
-        return;
     }
 
     if (entry->bv_id &&
         !m_portsOrch->getPort(entry->bv_id, vlan))
     {
+        /* BV_ID recieved for the FLUSH event can be an actual bv_id or bridge_port_id */
         SWSS_LOG_ERROR("FdbOrch notification type %d: Failed to locate vlan port from bv_id 0x%" PRIx64, type, entry->bv_id);
         return;
     }
