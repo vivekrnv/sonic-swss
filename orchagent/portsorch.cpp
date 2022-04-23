@@ -4525,7 +4525,7 @@ bool PortsOrch::removeVlan(Port vlan)
     SWSS_LOG_ENTER();
 
     /* If there are still fdb entries associated with the VLAN,
-       notify to syslog and continue */
+       return false for retry */
     if (vlan.m_fdb_count > 0)
     {
         SWSS_LOG_NOTICE("VLAN %s still has %d FDB entries", vlan.m_alias.c_str(), vlan.m_fdb_count);
