@@ -173,21 +173,6 @@ bool FdbOrch::storeFdbEntryState(const FdbUpdate& update)
     }
 }
 
-void FdbOrch::clearFdbEntry(const MacAddress& mac,
-                            const sai_object_id_t& bv_id,
-                            const string& fdb_type,
-                            const Port& port)
-{
-    FdbUpdate update;
-    update.entry.mac = mac;
-    update.entry.bv_id = bv_id;
-    update.port = port;
-    update.type = fdb_type;
-    update.add = false;
-
-    storeFdbEntryState(update);
-    notify(SUBJECT_TYPE_FDB_CHANGE, &update);
-}
 
 /*
 Handles the SAI_FDB_EVENT_FLUSHED notification recieved from syncd
@@ -197,27 +182,28 @@ Ref: https://github.com/opencomputeproject/SAI/blob/master/inc/saifdb.h#L223
 void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
                                     const sai_object_id_t& bridge_port_id,
                                     const string& fdb_type,
-                                    Port& port,
-                                    Port& vlan,
                                     const MacAddress& mac)
 {
-    /* Counters to track number of fbd entries removed */
-    int fdb_port_ctr = 0;
-    int fdb_vlan_ctr = 0;
+    MacAddress flush_mac(CONSOLIDATED_FLUSH_MAC);
+
+    /* Populate Queue */
+    vector<FdbUpdate> updates;
+    Port port_empty;
+    Port port;
+    Port port_temp;
 
     if (bridge_port_id == SAI_NULL_OBJECT_ID && bv_id == SAI_NULL_OBJECT_ID)
     {
         for (auto itr = m_entries.begin(); itr != m_entries.end(); itr++)
         {
-            auto fdb_type_match = itr->second.type.find(fdb_type);
-            if (fdb_type_match == std::string::npos){
-                continue;
+            if (itr->second.type.find(fdb_type) == std::string::npos) continue;
+            
+            if (itr->first.mac == mac || mac == flush_mac)
+            {
+                bool found = m_portsOrch->getPortByBridgePortId(itr->second.bridge_port_id, port);
+                port_temp = found ?  port : port_empty; 
+                updates.emplace_back(itr->first.mac, itr->first.bv_id, fdb_type, port_temp, false);
             }
-            this->clearFdbEntry(itr->first.mac, itr->first.bv_id, fdb_type, port);
-            if (itr->first.bv_id != SAI_NULL_OBJECT_ID){
-                fdb_vlan_ctr++;
-            }
-            fdb_port_ctr++;
         }
     }
     else if (bv_id == SAI_NULL_OBJECT_ID)
@@ -225,52 +211,80 @@ void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
         /* FLUSH based on PORT */
         for (auto itr = m_entries.begin(); itr != m_entries.end(); itr++)
         {
-            if (itr->first.port_name == port.m_alias)
+            if (itr->second.type.find(fdb_type) == std::string::npos) continue;
+            if (itr->second.bridge_port_id == bridge_port_id)
             {
-                auto fdb_type_match = itr->second.type.find(fdb_type);
-                if (fdb_type_match == std::string::npos){
-                    continue;
+                if (itr->first.mac == mac || mac == flush_mac)
+                {
+                    bool found = m_portsOrch->getPortByBridgePortId(itr->second.bridge_port_id, port);
+                    port_temp = found ?  port : port_empty; 
+                    updates.emplace_back(itr->first.mac, itr->first.bv_id, fdb_type, port_temp, false);
                 }
-                this->clearFdbEntry(itr->first.mac, itr->first.bv_id, fdb_type, port);
-                fdb_port_ctr++;
-            }
+            }  
         }
     }
     else if (bridge_port_id == SAI_NULL_OBJECT_ID)
     {
-        /* FLUSH based on BV_ID */
+        /* 
+        FLUSH based on BV_ID 
+        BV_ID recieved from syncd notif can be the actual bv_id or bridge_port_id 
+        Ref: https://github.com/opencomputeproject/SAI/blob/master/inc/saifdb.h#L235 
+        */
         for (auto itr = m_entries.begin(); itr != m_entries.end(); itr++)
         {
-            if (itr->first.bv_id == bv_id)
+            if (itr->second.type.find(fdb_type) == std::string::npos) continue;
+            if (itr->first.bv_id == bv_id || itr->second.bridge_port_id == bv_id)
             {
-                auto fdb_type_match = itr->second.type.find(fdb_type);
-                if (fdb_type_match == std::string::npos){
-                    continue;
+                if (itr->first.mac == mac || mac == flush_mac)
+                {
+                    bool found = m_portsOrch->getPortByBridgePortId(bv_id, port);
+                    port_temp = found ?  port : port_empty; 
+                    updates.emplace_back(itr->first.mac, itr->first.bv_id, fdb_type, port_temp, false);
                 }
-                this->clearFdbEntry(itr->first.mac, itr->first.bv_id, fdb_type, port);
-                fdb_port_ctr++;
             }
         }
     }
     else
     {
         /* FLUSH based on port and VLAN */
-        this->clearFdbEntry(mac, bv_id, fdb_type, port);
-        fdb_port_ctr++;
-        fdb_vlan_ctr++;
+        for (auto itr = m_entries.begin(); itr != m_entries.end(); itr++)
+        {
+            if (itr->second.type.find(fdb_type) == std::string::npos) continue;
+            if (itr->first.bv_id == bv_id && itr->second.bridge_port_id == bridge_port_id)
+            {
+                if (itr->first.mac == mac || mac == flush_mac)
+                {
+                    bool found = m_portsOrch->getPortByBridgePortId(itr->second.bridge_port_id, port);
+                    port_temp = found ?  port : port_empty; 
+                    updates.emplace_back(itr->first.mac, itr->first.bv_id, fdb_type, port_temp, false);
+                }
+            }
+        }
     }
 
-    if (!port.m_alias.empty())
+    for (auto& update : updates)
     {
-        port.m_fdb_count -= fdb_port_ctr;
-        m_portsOrch->setPort(port.m_alias, port);
+        /* Fetch Vlan and decrement the counter */
+        Port temp_vlan;
+        if (m_portsOrch->getPort(update.entry.bv_id, temp_vlan))
+        {
+            temp_vlan.m_fdb_count--;
+            m_portsOrch->setPort(temp_vlan.m_alias, temp_vlan);
+        }
+
+        /* Decrement port fdb_counter */
+        Port temp_port;
+        if (m_portsOrch->getPort(update.port.m_alias, temp_port))
+        {
+            temp_port.m_fdb_count--;
+            m_portsOrch->setPort(temp_port.m_alias, temp_port);
+        }
+    
+        storeFdbEntryState(update);
+        notify(SUBJECT_TYPE_FDB_CHANGE, &update);
     }
 
-    if (!vlan.m_alias.empty())
-    {
-        vlan.m_fdb_count -= fdb_vlan_ctr;
-        m_portsOrch->setPort(vlan.m_alias, vlan);
-    }
+    // std::cout << fdb_port_ctr << " " << fdb_vlan_ctr << std::endl;
 }
 
 void FdbOrch::update(sai_fdb_event_t        type,
@@ -285,7 +299,6 @@ void FdbOrch::update(sai_fdb_event_t        type,
     update.entry.bv_id = entry->bv_id;
     update.type = fdb_entry_type == SAI_FDB_ENTRY_TYPE_STATIC ? "static" : "dynamic";
     Port vlan;
-    MacAddress flush_consolidated_mac("00:00:00:00:00:00");
 
     SWSS_LOG_INFO("FDB event:%d, MAC: %s , BVID: 0x%" PRIx64 " , \
                    bridge port ID: 0x%" PRIx64 ".",
@@ -595,25 +608,7 @@ void FdbOrch::update(sai_fdb_event_t        type,
         SWSS_LOG_INFO("FDB Flush: [ %s , %s ] = { port: %s }", update.entry.mac.to_string().c_str(),
                       vlanName.c_str(), update.port.m_alias.c_str());
 
-        if (flush_consolidated_mac == update.entry.mac)
-        {
-            /* consolidated flush */
-            for (auto itr = m_entries.begin(); itr != m_entries.end(); itr++)
-            {
-                if ((itr->first.bv_id != entry->bv_id && entry->bv_id != SAI_NULL_OBJECT_ID) ||
-                    (itr->second.bridge_port_id != bridge_port_id && bridge_port_id != SAI_NULL_OBJECT_ID))
-                {
-                    continue;
-                }
-                this->handleSyncdFlushNotif(entry->bv_id, bridge_port_id, update.type,
-                                            update.port, vlan, itr->first.mac);
-            }
-        }
-        else
-        {
-            this->handleSyncdFlushNotif(entry->bv_id, bridge_port_id, update.type,
-                                        update.port, vlan, update.entry.mac);
-        }
+        handleSyncdFlushNotif(entry->bv_id, bridge_port_id, update.type, update.entry.mac);
 
         break;
     }

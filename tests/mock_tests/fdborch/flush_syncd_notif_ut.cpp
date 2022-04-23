@@ -30,7 +30,10 @@ namespace fdb_syncd_flush_test
         std::shared_ptr<FdbOrch> m_fdborch;
 
         virtual void SetUp() override
-        {
+        {   
+
+            testing_db::reset();
+
             map<string, string> profile = {
                 { "SAI_VS_SWITCH_TYPE", "SAI_VS_SWITCH_TYPE_BCM56850" },
                 { "KV_DEVICE_MAC_ADDRESS", "20:03:04:05:06:00" }
@@ -146,10 +149,10 @@ namespace fdb_syncd_flush_test
         ASSERT_NE(m_portsOrch->m_portList.find(ETH0), m_portsOrch->m_portList.end());
         setUpVlanMember(m_portsOrch.get());
 
-        /* Learn a dynamic FDB Entry */
+        /* Event 1: Learn a dynamic FDB Entry */
         sai_fdb_event_t type = SAI_FDB_EVENT_LEARNED;
         sai_fdb_entry_t entry;
-        //7c:fe:90:12:22:ec
+        // 7c:fe:90:12:22:ec
         vector<uint8_t> mac_addr = {124, 254, 144, 18, 34, 236};
         for (int i = 0; i < (int)mac_addr.size(); i++){
             *(entry.mac_address+i) = mac_addr[i];
@@ -162,11 +165,39 @@ namespace fdb_syncd_flush_test
         
         string port;
         string entry_type;
-        
+
+        /* Make sure state db is updated as expected */
         ASSERT_EQ(m_fdborch->m_fdbStateTable.hget("Vlan40:7c:fe:90:12:22:ec", "port", port), true);
         ASSERT_EQ(m_fdborch->m_fdbStateTable.hget("Vlan40:7c:fe:90:12:22:ec", "type", entry_type), true);
         
         ASSERT_EQ(port, "Ethernet0");
         ASSERT_EQ(entry_type, "dynamic");
+
+        /* Make sure fdb_count i sincremented as expected */
+        ASSERT_EQ(m_portsOrch->m_portList[VLAN40].m_fdb_count, 1);
+        ASSERT_EQ(m_portsOrch->m_portList[ETH0].m_fdb_count, 1);
+
+        /* Event2: Send a Consolidated Flush response from syncd based on per port and per vlan */
+        type = SAI_FDB_EVENT_FLUSHED;
+        // Consolidated Flush sends 00:00:00:00:00:00
+        vector<uint8_t> flush_mac_addr = {0, 0, 0, 0, 0, 0};
+        for (int i = 0; i < (int)flush_mac_addr.size(); i++){
+            *(entry.mac_address+i) = flush_mac_addr[i];
+        }
+        entry.bv_id = m_portsOrch->m_portList[VLAN40].m_vlan_info.vlan_oid;
+        fdb_entry_type = SAI_FDB_ENTRY_TYPE_DYNAMIC;
+        bridge_port_id = m_portsOrch->m_portList[ETH0].m_bridge_port_id;
+
+        m_fdborch->update(type, &entry, bridge_port_id, fdb_entry_type);
+
+        /* make sure fdb_counters are decremented */
+        ASSERT_EQ(m_portsOrch->m_portList[VLAN40].m_fdb_count, 0);
+        ASSERT_EQ(m_portsOrch->m_portList[ETH0].m_fdb_count, 0);
+
+        /* Make sure state db is cleared */
+        ASSERT_EQ(m_fdborch->m_fdbStateTable.hget("Vlan40:7c:fe:90:12:22:ec", "port", port), false);
+        ASSERT_EQ(m_fdborch->m_fdbStateTable.hget("Vlan40:7c:fe:90:12:22:ec", "type", entry_type), false);
+
+        cout << m_portsOrch->m_portList[VLAN40].m_fdb_count << endl;
     }
 }
