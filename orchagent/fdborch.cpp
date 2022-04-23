@@ -237,8 +237,8 @@ void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
             {
                 if (itr->first.mac == mac || mac == flush_mac)
                 {
-                    bool found = m_portsOrch->getPortByBridgePortId(bv_id, port);
-                    port_temp = found ?  port : port_empty; 
+                    bool found = m_portsOrch->getPortByBridgePortId(itr->second.bridge_port_id, port);
+                    port_temp = found ?  port : port_empty;
                     updates.emplace_back(itr->first.mac, itr->first.bv_id, fdb_type, port_temp, false);
                 }
             }
@@ -283,8 +283,6 @@ void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
         storeFdbEntryState(update);
         notify(SUBJECT_TYPE_FDB_CHANGE, &update);
     }
-
-    // std::cout << fdb_port_ctr << " " << fdb_vlan_ctr << std::endl;
 }
 
 void FdbOrch::update(sai_fdb_event_t        type,
