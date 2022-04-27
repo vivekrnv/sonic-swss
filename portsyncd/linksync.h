@@ -4,8 +4,14 @@
 #include "dbconnector.h"
 #include "producerstatetable.h"
 #include "netmsg.h"
+#include "exec.h"
 
 #include <map>
+#include <set>
+#include <vector>
+#include <set>
+#include <map>
+#include <list>
 
 namespace swss {
 
@@ -27,5 +33,8 @@ private:
 };
 
 }
+
+void handlePortConfigFromConfigDB(swss::ProducerStateTable &, swss::DBConnector &, bool );
+void handlePortConfig(swss::ProducerStateTable &, std::map<std::string, swss::KeyOpFieldsValuesTuple> &);
 
 #endif

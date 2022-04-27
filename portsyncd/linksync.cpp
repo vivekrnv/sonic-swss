@@ -8,6 +8,7 @@
 #include "netmsg.h"
 #include "dbconnector.h"
 #include "producerstatetable.h"
+#include "subscriberstatetable.h"
 #include "tokenize.h"
 #include "exec.h"
 
@@ -31,8 +32,8 @@ const string MGMT_PREFIX = "eth";
 const string INTFS_PREFIX = "Ethernet";
 const string LAG_PREFIX = "PortChannel";
 
-extern set<string> g_portSet;
-extern bool g_init;
+set<string> g_portSet;
+bool g_init;
 
 struct if_nameindex
 {
@@ -266,5 +267,80 @@ void LinkSync::onMsg(int nlmsg_type, struct nl_object *obj)
     else
     {
         SWSS_LOG_NOTICE("Cannot find %s in port table", key.c_str());
+    }
+}
+
+static void notifyPortConfigDone(ProducerStateTable &p)
+{
+    /* Notify that all ports added */
+    FieldValueTuple finish_notice("count", to_string(g_portSet.size()));
+    vector<FieldValueTuple> attrs = { finish_notice };
+    p.set("PortConfigDone", attrs);
+}
+
+void handlePortConfigFromConfigDB(ProducerStateTable &p, DBConnector &cfgDb, bool warm)
+{
+    SWSS_LOG_ENTER();
+
+    SWSS_LOG_NOTICE("Getting port configuration from ConfigDB...");
+
+    Table table(&cfgDb, CFG_PORT_TABLE_NAME);
+    std::vector<FieldValueTuple> ovalues;
+    std::vector<string> keys;
+    table.getKeys(keys);
+
+    if (keys.empty())
+    {
+        SWSS_LOG_NOTICE("ConfigDB does not have port information, "
+                        "however ports can be added later on, continuing...");
+    }
+
+    for ( auto &k : keys )
+    {
+        table.get(k, ovalues);
+        vector<FieldValueTuple> attrs;
+        for ( auto &v : ovalues )
+        {
+            FieldValueTuple attr(v.first, v.second);
+            attrs.push_back(attr);
+        }
+        if (!warm)
+        {
+            p.set(k, attrs);
+        }
+        g_portSet.insert(k);
+    }
+    if (!warm)
+    {
+        notifyPortConfigDone(p);
+    }
+
+}
+
+void handlePortConfig(ProducerStateTable &p, map<string, KeyOpFieldsValuesTuple> &port_cfg_map)
+{
+    auto it = port_cfg_map.begin();
+    while (it != port_cfg_map.end())
+    {
+        KeyOpFieldsValuesTuple entry = it->second;
+        string key = kfvKey(entry);
+        string op  = kfvOp(entry);
+        auto values = kfvFieldsValues(entry);
+
+        /* only push down port config when port is not in hostif create pending state */
+        if (g_portSet.find(key) == g_portSet.end())
+        {
+            /* No support for port delete yet */
+            if (op == SET_COMMAND)
+            {
+                p.set(key, values);
+            }
+
+            it = port_cfg_map.erase(it);
+        }
+        else
+        {
+            it++;
+        }
     }
 }
