@@ -101,7 +101,7 @@ LinkSync::LinkSync(DBConnector *appl_db, DBConnector *state_db) :
 
     if (!WarmStart::isWarmStart())
     {
-        /* See the comments for g_portSet in portsyncd.cpp */
+        /* See the comments for g_portSet  */
         for (auto port_iter = g_portSet.begin(); port_iter != g_portSet.end();)
         {
             string port = *port_iter;
