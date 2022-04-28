@@ -37,4 +37,11 @@ private:
 void handlePortConfigFromConfigDB(swss::ProducerStateTable &, swss::DBConnector &, bool );
 void handlePortConfig(swss::ProducerStateTable &, std::map<std::string, swss::KeyOpFieldsValuesTuple> &);
 
+struct if_nameindex
+{
+    unsigned int if_index;
+    char *if_name;
+};
+extern "C" { extern struct if_nameindex *if_nameindex (void) __THROW; }
+
 #endif

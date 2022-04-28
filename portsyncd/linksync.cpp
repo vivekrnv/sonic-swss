@@ -35,13 +35,6 @@ const string LAG_PREFIX = "PortChannel";
 set<string> g_portSet;
 bool g_init;
 
-struct if_nameindex
-{
-    unsigned int if_index;
-    char *if_name;
-};
-extern "C" { extern struct if_nameindex *if_nameindex (void) __THROW; }
-
 LinkSync::LinkSync(DBConnector *appl_db, DBConnector *state_db) :
     m_portTableProducer(appl_db, APP_PORT_TABLE_NAME),
     m_portTable(appl_db, APP_PORT_TABLE_NAME),

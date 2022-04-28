@@ -129,7 +129,8 @@ tests_portsyncd_SOURCES = portsyncd/portsyncd_ut.cpp \
                           mock_hiredis.cpp \
                           mock_redisreply.cpp
 
-tests_portsyncd_CFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) -Wl,-wrap,if_nameindex
+tests_portsyncd_CXXFLAGS = -Wl,-wrap,if_nameindex
+tests_portsyncd_CFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST)
 tests_portsyncd_CPPFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(tests_portsyncd_INCLUDES)
 tests_portsyncd_LDADD = $(LDADD_GTEST) -lnl-genl-3 -lhiredis -lhiredis -lpthread \
         -lswsscommon -lswsscommon -lgtest -lgtest_main -lnl-3 -lnl-route-3
