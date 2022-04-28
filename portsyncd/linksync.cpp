@@ -32,6 +32,16 @@ const string MGMT_PREFIX = "eth";
 const string INTFS_PREFIX = "Ethernet";
 const string LAG_PREFIX = "PortChannel";
 
+/*
+ * This g_portSet contains all the front panel ports that the corresponding
+ * host interfaces needed to be created. When this LinkSync class is
+ * initialized, we check the database to see if some of the ports' host
+ * interfaces are already created and remove them from this set. We will
+ * remove the rest of the ports in the set when receiving the first netlink
+ * message indicating that the host interfaces are created. After the set
+ * is empty, we send out the signal PortInitDone. g_init is used to limit the
+ * command to be run only once.
+ */
 set<string> g_portSet;
 bool g_init;
 
