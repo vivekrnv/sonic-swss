@@ -119,8 +119,6 @@ tests_LDADD = $(LDADD_GTEST) $(LDADD_SAI) -lnl-genl-3 -lhiredis -lhiredis -lpthr
 
 ## portsyncd unit tests
 
-tests_portsyncd_INCLUDES = -I $(top_srcdir)/portsyncd -I $(top_srcdir)/cfgmgr
-
 tests_portsyncd_SOURCES = portsyncd/portsyncd_ut.cpp \
                           $(top_srcdir)/portsyncd/linksync.cpp \
                           mock_dbconnector.cpp \
@@ -129,6 +127,7 @@ tests_portsyncd_SOURCES = portsyncd/portsyncd_ut.cpp \
                           mock_hiredis.cpp \
                           mock_redisreply.cpp
 
+tests_portsyncd_INCLUDES = -I $(top_srcdir)/portsyncd -I $(top_srcdir)/cfgmgr
 tests_portsyncd_CXXFLAGS = -Wl,-wrap,if_nameindex
 tests_portsyncd_CFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST)
 tests_portsyncd_CPPFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(tests_portsyncd_INCLUDES)
