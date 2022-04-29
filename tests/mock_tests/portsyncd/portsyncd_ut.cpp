@@ -103,12 +103,12 @@ namespace portsyncd_ut
 
     /* Draft a rtnl_link msg */
     struct nl_object* draft_nlmsg(const std::string& name,
-                                        std::vector<unsigned int> flags,
-                                        const std::string& type,
-                                        const std::string& ll_add,
-                                        int ifindex,
-                                        unsigned int mtu,
-                                        int master_ifindex = 0){
+                                 std::vector<unsigned int> flags,
+                                 const std::string& type,
+                                 const std::string& ll_add,
+                                 int ifindex,
+                                 unsigned int mtu,
+                                 int master_ifindex = 0){
                                 
         struct rtnl_link* nl_obj =  rtnl_link_alloc();
         if (!nl_obj){
@@ -147,6 +147,10 @@ namespace portsyncd_ut
         }
 
         return (struct nl_object*)nl_obj;
+    }
+
+    inline void free_nlobj(struct nl_object* msg){
+         nl_object_free(msg);
     }
 }
 
@@ -208,7 +212,7 @@ namespace portsyncd_ut
         ASSERT_EQ(sync.m_ifindexOldNameMap[142], "Ethernet0");
     }
 
-    TEST_F(PortSyncdTest, test_onMsg)
+    TEST_F(PortSyncdTest, test_onMsgNewLink)
     {
         swss::LinkSync sync(m_app_db.get(), m_state_db.get());
         /* Write config to Config DB */
@@ -246,6 +250,75 @@ namespace portsyncd_ut
         ASSERT_EQ(sync.m_ifindexNameMap[142], "Ethernet0");
 
         /* Free Nl_object */
-        nl_object_free(msg);
+        free_nlobj(msg);
+    }
+
+    TEST_F(PortSyncdTest, test_onMsgDelLink){
+
+        swss::LinkSync sync(m_app_db.get(), m_state_db.get());
+
+        /* Write config to Config DB */
+        populateCfgDb(m_portCfgTable.get());
+        swss::DBConnector cfg_db_conn("CONFIG_DB", 0);
+
+        /* Handle CFG DB notifs and Write them to APPL_DB */
+        swss::ProducerStateTable p(m_app_db.get(), APP_PORT_TABLE_NAME);
+        handlePortConfigFromConfigDB(p, cfg_db_conn, false);
+
+        /* Generate a netlink notification about the netdev iface */
+        std::vector<unsigned int> flags = {IFF_UP, IFF_RUNNING};
+        struct nl_object* msg = draft_nlmsg("Ethernet0",
+                                            flags,
+                                            "sx_netdev",
+                                            "1c:34:da:1c:9f:00",
+                                            142,
+                                            9100,
+                                            0);
+        sync.onMsg(RTM_NEWLINK, msg);
+
+        /* Verify if the update has been written to State DB */
+        std::vector<swss::FieldValueTuple> ovalues;
+        ASSERT_EQ(sync.m_statePortTable.get("Ethernet0", ovalues), true);
+
+        /* Free Nl_object */
+        free_nlobj(msg);
+
+        /* Generate a DELLINK Notif */
+        msg = draft_nlmsg("Ethernet0",
+                           flags,
+                           "sx_netdev",
+                           "1c:34:da:1c:9f:00",
+                           142,
+                           9100,
+                           0);
+
+        sync.onMsg(RTM_DELLINK, msg);
+        ovalues.clear();
+
+        /* Verify if the state_db entry is cleared */
+        ASSERT_EQ(sync.m_statePortTable.get("Ethernet0", ovalues), false);
+    }
+
+    TEST_F(PortSyncdTest, test_onMsgMgmtIface){
+        swss::LinkSync sync(m_app_db.get(), m_state_db.get());
+        
+        /* Generate a netlink notification about the eth0 netdev iface */
+        std::vector<unsigned int> flags = {IFF_UP}; 
+        struct nl_object* msg = draft_nlmsg("eth0",
+                                            flags,
+                                            "",
+                                            "00:50:56:28:0e:4a",
+                                            16222,
+                                            9100,
+                                            0);
+        sync.onMsg(RTM_NEWLINK, msg);
+
+        /* Verify if the update has been written to State DB */
+        std::string oper_status;
+        ASSERT_EQ(sync.m_stateMgmtPortTable.hget("eth0", "oper_status", oper_status), true);
+        ASSERT_EQ(oper_status, "down");
+
+        /* Free Nl_object */
+        free_nlobj(msg);
     }
 }
