@@ -321,4 +321,27 @@ namespace portsyncd_ut
         /* Free Nl_object */
         free_nlobj(msg);
     }
+
+    TEST_F(PortSyncdTest, test_onMsgIgnoreOldNetDev){
+        if_ni_mock = populateNetDevAdvanced();
+        swss::LinkSync sync(m_app_db.get(), m_state_db.get());
+        ASSERT_EQ(mockCallArgs.back(), "ip link set \"Ethernet0\" down");
+        ASSERT_NE(sync.m_ifindexOldNameMap.find(142), sync.m_ifindexOldNameMap.end());
+        ASSERT_EQ(sync.m_ifindexOldNameMap[142], "Ethernet0");
+
+        /* Generate a netlink notification about the netdev iface */
+        std::vector<unsigned int> flags;
+        struct nl_object* msg = draft_nlmsg("Ethernet0",
+                                            flags,
+                                            "sx_netdev",
+                                            "1c:34:da:1c:9f:00",
+                                            142,
+                                            9100,
+                                            0);
+        sync.onMsg(RTM_NEWLINK, msg);
+
+        /* Verify if nothing is written to state_db */
+        std::vector<swss::FieldValueTuple> ovalues;
+        ASSERT_EQ(sync.m_statePortTable.get("Ethernet0", ovalues), false);
+    }
 }
