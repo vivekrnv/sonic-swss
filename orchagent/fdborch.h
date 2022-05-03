@@ -48,7 +48,7 @@ struct FdbUpdate
         this->entry.bv_id = bv_id;
         this->port = port;
         this->type = fdb_type;
-        this->add = false;
+        this->add = add;
     }
 };
 
