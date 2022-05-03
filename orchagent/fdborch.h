@@ -38,18 +38,6 @@ struct FdbUpdate
     Port port;
     string type;
     bool add;
-
-    FdbUpdate() = default;
-
-    FdbUpdate(const MacAddress& mac, const sai_object_id_t& bv_id,
-              const string& fdb_type, const Port& port, bool add) 
-    {
-        this->entry.mac = mac;
-        this->entry.bv_id = bv_id;
-        this->port = port;
-        this->type = fdb_type;
-        this->add = false;
-    }
 };
 
 struct FdbFlushUpdate
@@ -137,7 +125,8 @@ private:
     bool storeFdbEntryState(const FdbUpdate& update);
     void notifyTunnelOrch(Port& port);
 
-    void handleSyncdFlushNotif(const sai_object_id_t&, const sai_object_id_t&, const string&, const MacAddress& mac);
+    void clearFdbEntry(const MacAddress&, const sai_object_id_t&, const string& , const string&);
+    void handleSyncdFlushNotif(const sai_object_id_t&, const sai_object_id_t&, const string&, const MacAddress& );
 };
 
 #endif /* SWSS_FDBORCH_H */

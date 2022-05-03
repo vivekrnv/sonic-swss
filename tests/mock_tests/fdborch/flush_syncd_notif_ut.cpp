@@ -184,7 +184,7 @@ namespace fdb_syncd_flush_test
         ASSERT_EQ(entry_type, "dynamic");
 
         /* Event 2: Generate a FDB Flush per port and per vlan */
-        vector<uint8_t> flush_mac_addr = {0, 0, 0, 0, 0, 0};;
+        vector<uint8_t> flush_mac_addr = {0, 0, 0, 0, 0, 0};
         triggerUpdate(m_fdborch.get(), SAI_FDB_EVENT_FLUSHED, flush_mac_addr, m_portsOrch->m_portList[ETH0].m_bridge_port_id,
                       m_portsOrch->m_portList[VLAN40].m_vlan_info.vlan_oid, SAI_FDB_ENTRY_TYPE_DYNAMIC);
 
@@ -228,7 +228,7 @@ namespace fdb_syncd_flush_test
         ASSERT_EQ(entry_type, "dynamic");
 
         /* Event2: Send a Consolidated Flush response from syncd */
-        vector<uint8_t> flush_mac_addr = {0, 0, 0, 0, 0, 0};;
+        vector<uint8_t> flush_mac_addr = {0, 0, 0, 0, 0, 0};
         triggerUpdate(m_fdborch.get(), SAI_FDB_EVENT_FLUSHED, flush_mac_addr, SAI_NULL_OBJECT_ID,
                       SAI_NULL_OBJECT_ID, SAI_FDB_ENTRY_TYPE_DYNAMIC);
 
@@ -272,7 +272,7 @@ namespace fdb_syncd_flush_test
         ASSERT_EQ(entry_type, "dynamic");
 
         /* Event2: Send a Consolidated Flush response from syncd for vlan */
-        vector<uint8_t> flush_mac_addr = {0, 0, 0, 0, 0, 0};;
+        vector<uint8_t> flush_mac_addr = {0, 0, 0, 0, 0, 0};
         triggerUpdate(m_fdborch.get(), SAI_FDB_EVENT_FLUSHED, flush_mac_addr, SAI_NULL_OBJECT_ID,
                       m_portsOrch->m_portList[VLAN40].m_vlan_info.vlan_oid, SAI_FDB_ENTRY_TYPE_DYNAMIC);
 
@@ -316,7 +316,7 @@ namespace fdb_syncd_flush_test
         ASSERT_EQ(entry_type, "dynamic");
 
         /* Event2: Send a Consolidated Flush response from syncd for a port */
-        vector<uint8_t> flush_mac_addr = {0, 0, 0, 0, 0, 0};;
+        vector<uint8_t> flush_mac_addr = {0, 0, 0, 0, 0, 0};
         triggerUpdate(m_fdborch.get(), SAI_FDB_EVENT_FLUSHED, flush_mac_addr, m_portsOrch->m_portList[ETH0].m_bridge_port_id,
                       SAI_NULL_OBJECT_ID, SAI_FDB_ENTRY_TYPE_DYNAMIC);
 
@@ -371,6 +371,50 @@ namespace fdb_syncd_flush_test
                       m_portsOrch->m_portList[VLAN40].m_vlan_info.vlan_oid, SAI_FDB_ENTRY_TYPE_DYNAMIC);
 
         /* make sure fdb_counter for Vlan is decremented */
+        ASSERT_EQ(m_portsOrch->m_portList[VLAN40].m_fdb_count, 0);
+        ASSERT_EQ(m_portsOrch->m_portList[ETH0].m_fdb_count, 0);
+
+        /* Make sure state db is cleared */
+        ASSERT_EQ(m_fdborch->m_fdbStateTable.hget("Vlan40:7c:fe:90:12:22:ec", "port", port), false);
+        ASSERT_EQ(m_fdborch->m_fdbStateTable.hget("Vlan40:7c:fe:90:12:22:ec", "type", entry_type), false);
+    }
+
+    /* Test Flush Per Vlan and Per Port */
+    TEST_F(FdbOrchTest, NonConsolidatedFlushVlanandPort)
+    {   
+        ASSERT_NE(m_portsOrch, nullptr);
+        setUpVlan(m_portsOrch.get());
+        setUpPort(m_portsOrch.get());
+        ASSERT_NE(m_portsOrch->m_portList.find(VLAN40), m_portsOrch->m_portList.end());
+        ASSERT_NE(m_portsOrch->m_portList.find(ETH0), m_portsOrch->m_portList.end());
+        setUpVlanMember(m_portsOrch.get());
+
+        /* Event 1: Learn a dynamic FDB Entry */
+        // 7c:fe:90:12:22:ec
+        vector<uint8_t> mac_addr = {124, 254, 144, 18, 34, 236};
+        triggerUpdate(m_fdborch.get(), SAI_FDB_EVENT_LEARNED, mac_addr, m_portsOrch->m_portList[ETH0].m_bridge_port_id,
+                      m_portsOrch->m_portList[VLAN40].m_vlan_info.vlan_oid, SAI_FDB_ENTRY_TYPE_DYNAMIC);
+
+        string port;
+        string entry_type;
+
+        /* Make sure fdb_count is incremented as expected */
+        ASSERT_EQ(m_portsOrch->m_portList[VLAN40].m_fdb_count, 1);
+        ASSERT_EQ(m_portsOrch->m_portList[ETH0].m_fdb_count, 1);
+
+        /* Make sure state db is updated as expected */
+        ASSERT_EQ(m_fdborch->m_fdbStateTable.hget("Vlan40:7c:fe:90:12:22:ec", "port", port), true);
+        ASSERT_EQ(m_fdborch->m_fdbStateTable.hget("Vlan40:7c:fe:90:12:22:ec", "type", entry_type), true);
+        
+        ASSERT_EQ(port, "Ethernet0");
+        ASSERT_EQ(entry_type, "dynamic");
+
+        /* Event 2: Generate a non-consilidated FDB Flush per port and per vlan */
+        vector<uint8_t> flush_mac_addr = {124, 254, 144, 18, 34, 236};
+        triggerUpdate(m_fdborch.get(), SAI_FDB_EVENT_FLUSHED, flush_mac_addr, m_portsOrch->m_portList[ETH0].m_bridge_port_id,
+                      m_portsOrch->m_portList[VLAN40].m_vlan_info.vlan_oid, SAI_FDB_ENTRY_TYPE_DYNAMIC);
+
+        /* make sure fdb_counters are decremented */
         ASSERT_EQ(m_portsOrch->m_portList[VLAN40].m_fdb_count, 0);
         ASSERT_EQ(m_portsOrch->m_portList[ETH0].m_fdb_count, 0);
 
