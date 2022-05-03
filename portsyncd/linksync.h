@@ -5,6 +5,8 @@
 #include "producerstatetable.h"
 #include "netmsg.h"
 #include "exec.h"
+#include "warm_restart.h"
+#include "shellcmd.h"
 
 #include <map>
 #include <set>
