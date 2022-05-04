@@ -6,6 +6,7 @@
 #include "orch.h"
 
 #include <map>
+#include <unordered_map>
 #include <string>
 #include <set>
 
@@ -38,6 +39,7 @@ private:
     std::set<std::string> m_pendingReplayIntfList;
     std::set<std::string> m_ipv6LinkLocalModeList;
     std::string mySwitchType;
+    std::unordered_map<std::string, int> m_ipv6Retry;
 
     void setIntfIp(const std::string &alias, const std::string &opCmd, const IpPrefix &ipPrefix);
     void setIntfVrf(const std::string &alias, const std::string &vrfName);
@@ -76,7 +78,11 @@ private:
     void updateSubIntfAdminStatus(const std::string &alias, const std::string &admin);
     void updateSubIntfMtu(const std::string &alias, const std::string &mtu);
 
+    void inferIPV6Capability();
+    bool isIpV6Enabled(const std::string& alias);
+
     bool m_replayDone {false};
+    bool g_ipv6Flag {false};
 };
 
 }

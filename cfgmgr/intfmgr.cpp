@@ -1,4 +1,6 @@
+#include <iostream>
 #include <string.h>
+#include <fstream>
 #include "logger.h"
 #include "dbconnector.h"
 #include "producerstatetable.h"
@@ -27,6 +29,19 @@ using namespace swss;
 
 #define LOOPBACK_DEFAULT_MTU_STR "65536"
 #define DEFAULT_MTU_STR 9100
+
+constexpr int MAX_IPV6_RETRY_SETTING=5;
+
+inline bool readFile(const string& path, string& out)
+{
+    ifstream input_file(path);
+    if (!input_file.is_open())
+    {
+       return false;
+    }
+    out = string((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
+    return true;
+}
 
 IntfMgr::IntfMgr(DBConnector *cfgDb, DBConnector *appDb, DBConnector *stateDb, const vector<string> &tableNames) :
         Orch(cfgDb, tableNames),
@@ -74,6 +89,8 @@ IntfMgr::IntfMgr(DBConnector *cfgDb, DBConnector *appDb, DBConnector *stateDb, c
     {
        mySwitchType = swtype;
     }
+
+    inferIPV6Capability();
 }
 
 void IntfMgr::setIntfIp(const string &alias, const string &opCmd,
@@ -1012,6 +1029,48 @@ bool IntfMgr::doIntfAddrTask(const vector<string>& keys,
             return false;
         }
 
+        /*
+        Even though network device is created at this point by the SDK,
+        ipv6 setting on the iface might still be disabled
+        Thus don't proceed setting an Ipv6 addr unless this setting is set by SDK
+        */
+        if (!ip_prefix.isV4())
+        {
+            if (!g_ipv6Flag)
+            {
+                SWSS_LOG_ERROR("Tried to set ipv6 address %s to the iface %s, disable_ipv6 flag is set", ip_prefix.to_string().c_str(), alias.c_str());
+                return true;
+            }
+
+            string key = alias + config_db_key_delimiter + ip_prefix.to_string();
+            if (!isIpV6Enabled(alias))
+            {
+                int num_tries = 1;
+                auto it = m_ipv6Retry.find(key);
+                if (it != m_ipv6Retry.end())
+                {
+                    num_tries += it->second;
+                }
+
+                if (num_tries >= MAX_IPV6_RETRY_SETTING)
+                {
+                    m_ipv6Retry.erase(key);
+                    SWSS_LOG_ERROR("IPv6 setting on the Interface %s is disabled, skip adding %s, retry#%d", alias.c_str(), ip_prefix.to_string().c_str(), num_tries);
+                    return true;
+                }
+                else
+                {
+                    m_ipv6Retry[key] = num_tries;
+                    SWSS_LOG_INFO("IPv6 setting on the Interface %s is still disabled, skip adding %s for now, retry#%d", alias.c_str(), ip_prefix.to_string().c_str(), num_tries);
+                    return false;
+                }
+            }
+            else
+            {
+                m_ipv6Retry.erase(key);
+            }
+        }
+
         setIntfIp(alias, "add", ip_prefix);
 
         std::vector<FieldValueTuple> fvVector;
@@ -1138,4 +1197,28 @@ void IntfMgr::doPortTableTask(const string& key, vector<FieldValueTuple> data, s
             }
         }
     }
+}
+
+bool IntfMgr::isIpV6Enabled(const string& alias)
+{
+    string path = "/proc/sys/net/ipv6/conf/" + alias + "/disable_ipv6";
+    string status;
+    if (!readFile(path, status))
+    {
+        return false;
+    }
+    return (status == "0") ? true : false;
+}
+
+void IntfMgr::inferIPV6Capability()
+{
+    string path1 = "/proc/sys/net/ipv6/conf/all/disable_ipv6";
+    string path2 = "/proc/sys/net/ipv6/conf/default/disable_ipv6";
+    string status1, status2;
+    if (!readFile(path1, status1) || !readFile(path2, status2))
+    {
+        g_ipv6Flag = false;
+        return ;
+    }
+    g_ipv6Flag = (status1 == "0" && status2 == "0") ? true : false;
 }
