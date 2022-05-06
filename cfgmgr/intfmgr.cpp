@@ -30,31 +30,6 @@ using namespace swss;
 #define LOOPBACK_DEFAULT_MTU_STR "65536"
 #define DEFAULT_MTU_STR 9100
 
-const string WHITESPACE = " \n\r\t\f\v";
-
-inline string rtrim(const string &s)
-{
-    size_t end = s.find_last_not_of(WHITESPACE);
-    return (end == std::string::npos) ? "" : s.substr(0, end + 1);
-}
-
-inline bool enableIpv6Flag(const string &alias)
-{
-    stringstream cmd;
-    string temp_res;
-    cmd << "sysctl -w " << "net.ipv6.conf." << shellquote(alias) << ".disable_ipv6=0";
-    return (swss::exec(cmd.str(), temp_res) == 0) ? true : false;
-}
-
-inline bool inferIPV6Capability()
-{
-    string cmd1 = "cat /proc/sys/net/ipv6/conf/all/disable_ipv6";
-    string cmd2 = "cat /proc/sys/net/ipv6/conf/default/disable_ipv6";
-    string status1, status2;
-    if (swss::exec(cmd1, status1) || swss::exec(cmd2, status2)) return false;
-    return (rtrim(status1) == "0" && rtrim(status2) == "0") ? true : false;
-}
-
 IntfMgr::IntfMgr(DBConnector *cfgDb, DBConnector *appDb, DBConnector *stateDb, const vector<string> &tableNames) :
         Orch(cfgDb, tableNames),
         m_cfgIntfTable(cfgDb, CFG_INTF_TABLE_NAME),
@@ -101,12 +76,10 @@ IntfMgr::IntfMgr(DBConnector *cfgDb, DBConnector *appDb, DBConnector *stateDb, c
     {
        mySwitchType = swtype;
     }
-
-    g_ipv6Flag = inferIPV6Capability();
 }
 
 void IntfMgr::setIntfIp(const string &alias, const string &opCmd,
-                        const IpPrefix &ipPrefix, bool retryV6)
+                        const IpPrefix &ipPrefix, bool allow_retry)
 {
     stringstream    cmd;
     string          res;
@@ -144,16 +117,10 @@ void IntfMgr::setIntfIp(const string &alias, const string &opCmd,
     int ret = swss::exec(cmd.str(), res);
     if (ret)
     {
-        /*
-            ipv6 setting on the iface might still haven't been enabled by SDK.
-            Retry adding Ipv6 Prefix after enabling the setting
-        */
-        if (retryV6 && enableIpv6Flag(alias))
+        if (allow_retry && enableIpv6Flag(alias))
         {
-            SWSS_LOG_INFO("Setting disable_ipv6 flag to 0 for iface: %s", alias.c_str());
             return setIntfIp(alias, opCmd, ipPrefix, false);
         }
-
         SWSS_LOG_ERROR("Command '%s' failed with rc %d", cmd.str().c_str(), ret);
     }
 }
@@ -1051,17 +1018,6 @@ bool IntfMgr::doIntfAddrTask(const vector<string>& keys,
             return false;
         }
 
-        /*
-        Even though network device is created at this point by the SDK,
-        ipv6 setting on the iface might still be disabled
-        Thus don't proceed setting an Ipv6 addr unless this setting is set by SDK
-        */
-        if (!ip_prefix.isV4() && !g_ipv6Flag)
-        {
-            SWSS_LOG_ERROR("Tried to set ipv6 address %s to the iface %s, disable_ipv6 flag is set", ip_prefix.to_string().c_str(), alias.c_str());
-            return true;
-        }
-
         setIntfIp(alias, "add", ip_prefix, true);
 
         std::vector<FieldValueTuple> fvVector;
@@ -1188,4 +1144,14 @@ void IntfMgr::doPortTableTask(const string& key, vector<FieldValueTuple> data, s
             }
         }
     }
+}
+
+bool IntfMgr::enableIpv6Flag(const string &alias)
+{
+    stringstream cmd;
+    string temp_res;
+    cmd << "sysctl -w net.ipv6.conf." << shellquote(alias) << ".disable_ipv6=0";
+    int ret = swss::exec(cmd.str(), temp_res);
+    SWSS_LOG_INFO("disable_ipv6 flag is set to 0 for iface: %s, cmd: %s, ret: %d", alias.c_str(), cmd.str().c_str(), ret);
+    return (ret == 0) ? true : false;
 }

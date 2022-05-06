@@ -21,14 +21,10 @@ namespace swss {
     }
 }
 
-
 bool Ethernet0IPv6Set = false;
-std::string globIpv6stdout = "0\n";
 
 int cb(const std::string &cmd, std::string &stdout){
-    if (cmd == "cat /proc/sys/net/ipv6/conf/all/disable_ipv6" ||
-        cmd == "cat /proc/sys/net/ipv6/conf/default/disable_ipv6") stdout = globIpv6stdout;
-    else if (cmd == "sysctl -w net.ipv6.conf.\"Ethernet0\".disable_ipv6=0") Ethernet0IPv6Set = false;
+    if (cmd == "sysctl -w net.ipv6.conf.\"Ethernet0\".disable_ipv6=0") Ethernet0IPv6Set = true;
     else if (cmd.find("/sbin/ip -6 address \"add\"") == 0) {
         return Ethernet0IPv6Set ? 0 : 2;
     }
@@ -71,19 +67,7 @@ namespace add_ipv6_prefix_ut
         }
     };
 
-    TEST_F(IntfMgrTest, testGlobalV6Enabled){
-        swss::IntfMgr intfmgr(m_config_db.get(), m_app_db.get(), m_state_db.get(), cfg_intf_tables);
-        ASSERT_EQ(intfmgr.g_ipv6Flag, true);
-    }
-
-    TEST_F(IntfMgrTest, testGlobalV6Disabled){
-        globIpv6stdout = "1\n";
-        swss::IntfMgr intfmgr(m_config_db.get(), m_app_db.get(), m_state_db.get(), cfg_intf_tables);
-        ASSERT_EQ(intfmgr.g_ipv6Flag, false);
-    }
-
     TEST_F(IntfMgrTest, testSettingIpv6Flag){
-        globIpv6stdout = "0\n";
         Ethernet0IPv6Set = false;
         swss::IntfMgr intfmgr(m_config_db.get(), m_app_db.get(), m_state_db.get(), cfg_intf_tables);
         /* Set portStateTable */
@@ -94,6 +78,7 @@ namespace add_ipv6_prefix_ut
         values.clear();
         values.emplace_back("vrf", "");
         intfmgr.m_stateIntfTable.set("Ethernet0", values, "SET", "");
+        /* Set Ipv6 prefix */
         const std::vector<std::string>& keys = {"Ethernet0", "2001::8/64"};
         const std::vector<swss::FieldValueTuple> data;
         intfmgr.doIntfAddrTask(keys, data, "SET");
@@ -107,7 +92,6 @@ namespace add_ipv6_prefix_ut
     }
 
     TEST_F(IntfMgrTest, testNoSettingIpv6Flag){
-        globIpv6stdout = "0\n";
         Ethernet0IPv6Set = true; // Assuming it is already set by SDK
         swss::IntfMgr intfmgr(m_config_db.get(), m_app_db.get(), m_state_db.get(), cfg_intf_tables);
         /* Set portStateTable */
@@ -118,6 +102,7 @@ namespace add_ipv6_prefix_ut
         values.clear();
         values.emplace_back("vrf", "");
         intfmgr.m_stateIntfTable.set("Ethernet0", values, "SET", "");
+        /* Set Ipv6 prefix */
         const std::vector<std::string>& keys = {"Ethernet0", "2001::8/64"};
         const std::vector<swss::FieldValueTuple> data;
         intfmgr.doIntfAddrTask(keys, data, "SET");
@@ -128,29 +113,5 @@ namespace add_ipv6_prefix_ut
             }
         }
         ASSERT_EQ(ip_cmd_called, 1);
-    }
-
-    TEST_F(IntfMgrTest, testIPV6GloballyDisabled){
-        globIpv6stdout = "1\n";  // Ipv6 Disabled Globally
-        Ethernet0IPv6Set = false; // Assuming it is already set by SDK
-        swss::IntfMgr intfmgr(m_config_db.get(), m_app_db.get(), m_state_db.get(), cfg_intf_tables);
-        /* Set portStateTable */
-        std::vector<swss::FieldValueTuple> values;
-        values.emplace_back("state", "ok");
-        intfmgr.m_statePortTable.set("Ethernet0", values, "SET", "");
-        /* Set m_stateIntfTable */
-        values.clear();
-        values.emplace_back("vrf", "");
-        intfmgr.m_stateIntfTable.set("Ethernet0", values, "SET", "");
-        const std::vector<std::string>& keys = {"Ethernet0", "2001::8/64"};
-        const std::vector<swss::FieldValueTuple> data;
-        intfmgr.doIntfAddrTask(keys, data, "SET");
-        int ip_cmd_called = 0;
-        for (auto cmd : mockCallArgs){
-            if (cmd.find("/sbin/ip -6 address \"add\"") == 0){
-                ip_cmd_called++;
-            }
-        }
-        ASSERT_EQ(ip_cmd_called, 0); // ip is not set;
     }
 }

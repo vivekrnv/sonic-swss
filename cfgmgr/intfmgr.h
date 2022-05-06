@@ -39,7 +39,7 @@ private:
     std::set<std::string> m_ipv6LinkLocalModeList;
     std::string mySwitchType;
 
-    void setIntfIp(const std::string &alias, const std::string &opCmd, const IpPrefix &ipPrefix, bool retryV6);
+    void setIntfIp(const std::string &alias, const std::string &opCmd, const IpPrefix &ipPrefix, bool);
     void setIntfVrf(const std::string &alias, const std::string &vrfName);
     void setIntfMac(const std::string &alias, const std::string &macAddr);
     bool setIntfMpls(const std::string &alias, const std::string &mpls);
@@ -75,9 +75,9 @@ private:
 
     void updateSubIntfAdminStatus(const std::string &alias, const std::string &admin);
     void updateSubIntfMtu(const std::string &alias, const std::string &mtu);
+    bool enableIpv6Flag(const std::string&);
 
     bool m_replayDone {false};
-    bool g_ipv6Flag {false};
 };
 
 }
