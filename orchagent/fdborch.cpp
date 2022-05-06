@@ -1016,14 +1016,11 @@ void FdbOrch::doTask(NotificationConsumer& consumer)
                 if (fdbevent[i].attr[j].id == SAI_FDB_ENTRY_ATTR_BRIDGE_PORT_ID)
                 {
                     oid = fdbevent[i].attr[j].value.oid;
-                    break;
                 }
-
-                if (fdbevent[i].attr[j].id == SAI_FDB_ENTRY_ATTR_TYPE)
+                else if (fdbevent[i].attr[j].id == SAI_FDB_ENTRY_ATTR_TYPE)
                 {
                     /* Will be either SAI_FDB_ENTRY_TYPE_DYNAMIC or SAI_FDB_ENTRY_TYPE_STATIC */
                     fdb_entry_type = fdbevent[i].attr[j].value.s32;
-                    break;
                 }
             }
 
