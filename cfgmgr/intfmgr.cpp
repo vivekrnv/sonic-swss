@@ -1,6 +1,4 @@
-#include <iostream>
 #include <string.h>
-#include <fstream>
 #include "logger.h"
 #include "dbconnector.h"
 #include "producerstatetable.h"
@@ -79,7 +77,7 @@ IntfMgr::IntfMgr(DBConnector *cfgDb, DBConnector *appDb, DBConnector *stateDb, c
 }
 
 void IntfMgr::setIntfIp(const string &alias, const string &opCmd,
-                        const IpPrefix &ipPrefix, bool allow_retry)
+                        const IpPrefix &ipPrefix)
 {
     stringstream    cmd;
     string          res;
@@ -114,14 +112,21 @@ void IntfMgr::setIntfIp(const string &alias, const string &opCmd,
         (cmd << IP_CMD << " -6 address " << shellquote(opCmd) << " " << shellquote(ipPrefixStr) << " dev " << shellquote(alias) << metric);
     }
 
-    int ret = swss::exec(cmd.str(), res);
-    if (ret)
+    int failed = swss::exec(cmd.str(), res);
+    if (failed && !ipPrefix.isV4() && opCmd == "add")
     {
-        if (allow_retry && enableIpv6Flag(alias))
+        SWSS_LOG_NOTICE("Failed to assign IPv6 on interface %s with return code %d, trying to enable IPv6 and retry", alias.c_str(), failed);
+        if (!enableIpv6Flag(alias))
         {
-            return setIntfIp(alias, opCmd, ipPrefix, false);
+            SWSS_LOG_ERROR("Failed to enable IPv6 on interface %s", alias.c_str());
+            return;
         }
-        SWSS_LOG_ERROR("Command '%s' failed with rc %d", cmd.str().c_str(), ret);
+        failed = swss::exec(cmd.str(), res);
+    }
+
+    if (failed)
+    {
+        SWSS_LOG_ERROR("Command '%s' failed with rc %d", cmd.str().c_str(), failed);
     }
 }
 
@@ -1018,7 +1023,7 @@ bool IntfMgr::doIntfAddrTask(const vector<string>& keys,
             return false;
         }
 
-        setIntfIp(alias, "add", ip_prefix, true);
+        setIntfIp(alias, "add", ip_prefix);
 
         std::vector<FieldValueTuple> fvVector;
         FieldValueTuple f("family", ip_prefix.isV4() ? IPV4_NAME : IPV6_NAME);
@@ -1035,7 +1040,7 @@ bool IntfMgr::doIntfAddrTask(const vector<string>& keys,
     }
     else if (op == DEL_COMMAND)
     {
-        setIntfIp(alias, "del", ip_prefix, false);
+        setIntfIp(alias, "del", ip_prefix);
 
         // Don't send ipv4 link local config to AppDB and Orchagent
         if ((ip_prefix.isV4() == false) || (ip_prefix.getIp().getAddrScope() != IpAddress::AddrScope::LINK_SCOPE))
