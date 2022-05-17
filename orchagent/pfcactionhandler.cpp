@@ -441,7 +441,7 @@ PfcWdZeroBufferHandler::PfcWdZeroBufferHandler(sai_object_id_t port,
         return;
     }
 
-    setPriorityGroupAndQueueLockFlag(portInstance, true);
+    setQueueLockFlag(portInstance, true);
 
     sai_attribute_t attr;
     attr.id = SAI_QUEUE_ATTR_BUFFER_PROFILE_ID;
@@ -469,35 +469,6 @@ PfcWdZeroBufferHandler::PfcWdZeroBufferHandler(sai_object_id_t port,
 
     // Save original buffer profile
     m_originalQueueBufferProfile = oldQueueProfileId;
-
-    // Get PG
-    sai_object_id_t pg = portInstance.m_priority_group_ids[static_cast <size_t> (queueId)];
-
-    attr.id = SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE;
-
-    // Get PG's buffer profile
-    status = sai_buffer_api->get_ingress_priority_group_attribute(pg, 1, &attr);
-    if (status != SAI_STATUS_SUCCESS)
-    {
-        SWSS_LOG_ERROR("Failed to get buffer profile ID on PG 0x%" PRIx64 ": %d", pg, status);
-        return;
-    }
-
-    // Set zero profile to PG
-    sai_object_id_t oldPgProfileId = attr.value.oid;
-
-    attr.id = SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE;
-    attr.value.oid = ZeroBufferProfile::getZeroBufferProfile(true);
-
-    status = sai_buffer_api->set_ingress_priority_group_attribute(pg, &attr);
-    if (status != SAI_STATUS_SUCCESS)
-    {
-        SWSS_LOG_ERROR("Failed to set buffer profile ID on pg 0x%" PRIx64 ": %d", pg, status);
-        return;
-    }
-
-    // Save original buffer profile
-    m_originalPgBufferProfile = oldPgProfileId;
 }
 
 PfcWdZeroBufferHandler::~PfcWdZeroBufferHandler(void)
@@ -516,33 +487,12 @@ PfcWdZeroBufferHandler::~PfcWdZeroBufferHandler(void)
         return;
     }
 
-    Port portInstance;
-    if (!gPortsOrch->getPort(getPort(), portInstance))
-    {
-        SWSS_LOG_ERROR("Cannot get port by ID 0x%" PRIx64, getPort());
-        return;
-    }
-
-    sai_object_id_t pg = portInstance.m_priority_group_ids[size_t(getQueueId())];
-
-    attr.id = SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE;
-    attr.value.oid = m_originalPgBufferProfile;
-
-    // Set our zero buffer profile
-    status = sai_buffer_api->set_ingress_priority_group_attribute(pg, &attr);
-    if (status != SAI_STATUS_SUCCESS)
-    {
-        SWSS_LOG_ERROR("Failed to set buffer profile ID on queue 0x%" PRIx64 ": %d", getQueue(), status);
-        return;
-    }
-
-    setPriorityGroupAndQueueLockFlag(portInstance, false);
+    setQueueLockFlag(portInstance, false);
 }
 
-void PfcWdZeroBufferHandler::setPriorityGroupAndQueueLockFlag(Port& port, bool isLocked) const
+void PfcWdZeroBufferHandler::setQueueLockFlag(Port& port, bool isLocked) const
 {
-    // set lock bits on PG and queue
-    port.m_priority_group_lock[static_cast<size_t>(getQueueId())] = isLocked;
+    // set lock bits on queue
     for (size_t i = 0; i < port.m_queue_ids.size(); ++i)
     {
         if (port.m_queue_ids[i] == getQueue())

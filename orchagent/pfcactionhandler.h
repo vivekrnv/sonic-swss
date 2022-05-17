@@ -124,10 +124,10 @@ class PfcWdZeroBufferHandler: public PfcWdLossyHandler
 
     private:
         /*
-         * Sets lock bits on port's priority group and queue
-         * to protect them from beeing changed by other Orch's
+         * Sets lock bits on port's queue
+         * to protect them from being changed by other Orch's
          */
-        void setPriorityGroupAndQueueLockFlag(Port& port, bool isLocked) const;
+        void setQueueLockFlag(Port& port, bool isLocked) const;
 
         // Singletone class for keeping shared data - zero buffer profiles
         class ZeroBufferProfile
@@ -159,7 +159,6 @@ class PfcWdZeroBufferHandler: public PfcWdLossyHandler
         };
 
         sai_object_id_t m_originalQueueBufferProfile = SAI_NULL_OBJECT_ID;
-        sai_object_id_t m_originalPgBufferProfile = SAI_NULL_OBJECT_ID;
 };
 
 #endif
