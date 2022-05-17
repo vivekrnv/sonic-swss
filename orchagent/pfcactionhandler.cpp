@@ -487,6 +487,13 @@ PfcWdZeroBufferHandler::~PfcWdZeroBufferHandler(void)
         return;
     }
 
+    Port portInstance;
+    if (!gPortsOrch->getPort(getPort(), portInstance))
+    {
+        SWSS_LOG_ERROR("Cannot get port by ID 0x%" PRIx64, getPort());
+        return;
+    }
+
     setQueueLockFlag(portInstance, false);
 }
 
