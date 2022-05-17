@@ -207,14 +207,14 @@ void FdbOrch::clearFdbEntry(const MacAddress& mac,
 
 /*
 Handles the SAI_FDB_EVENT_FLUSHED notification recieved from syncd
-Ref: https://github.com/opencomputeproject/SAI/blob/master/inc/saifdb.h#L223
 */
 void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
                                     const sai_object_id_t& bridge_port_id,
                                     const string& fdb_type,
                                     const MacAddress& mac)
 {
-    MacAddress flush_mac(CONSOLIDATED_FLUSH_MAC);
+    // Consolidated flush will have a zero mac
+    MacAddress flush_mac("00:00:00:00:00:00");
 
     if (bridge_port_id == SAI_NULL_OBJECT_ID && bv_id == SAI_NULL_OBJECT_ID)
     {
@@ -594,7 +594,7 @@ void FdbOrch::update(sai_fdb_event_t        type,
     }
     case SAI_FDB_EVENT_FLUSHED:
 
-        SWSS_LOG_NOTICE("FDB Flush event received: [ %s , 0x%" PRIx64 " ], \
+        SWSS_LOG_INFO("FDB Flush event received: [ %s , 0x%" PRIx64 " ], \
                        bridge port ID: 0x%" PRIx64 ". fdb event type %d ",
                        update.entry.mac.to_string().c_str(), entry->bv_id,
                        bridge_port_id, fdb_entry_type);
@@ -1009,7 +1009,7 @@ void FdbOrch::doTask(NotificationConsumer& consumer)
         for (uint32_t i = 0; i < count; ++i)
         {
             sai_object_id_t oid = SAI_NULL_OBJECT_ID;
-            sai_int32_t fdb_entry_type = -1;
+            sai_int32_t fdb_entry_type = 0;
 
             for (uint32_t j = 0; j < fdbevent[i].attr_count; ++j)
             {

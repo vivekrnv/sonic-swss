@@ -5,8 +5,6 @@
 #include "observer.h"
 #include "portsorch.h"
 
-#define CONSOLIDATED_FLUSH_MAC "00:00:00:00:00:00"
-
 enum FdbOrigin
 {
     FDB_ORIGIN_INVALID = 0,
