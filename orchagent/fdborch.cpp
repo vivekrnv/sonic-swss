@@ -179,13 +179,11 @@ clears stateDb and decrements corresponding internal fdb counters
 */
 void FdbOrch::clearFdbEntry(const MacAddress& mac,
                    const sai_object_id_t& bv_id,
-                   const string& fdb_type,
                    const string& port_alias)
 {
     FdbUpdate update;
     update.entry.mac = mac;
     update.entry.bv_id = bv_id;
-    update.type = fdb_type;
     update.add = false;
 
     /* Fetch Vlan and decrement the counter */
@@ -211,23 +209,22 @@ Handles the SAI_FDB_EVENT_FLUSHED notification recieved from syncd
 */
 void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
                                     const sai_object_id_t& bridge_port_id,
-                                    const string& fdb_type,
                                     const MacAddress& mac)
 {
     // Consolidated flush will have a zero mac
     MacAddress flush_mac("00:00:00:00:00:00");
 
+    /* TODO: Read the SAI_FDB_FLUSH_ATTR_ENTRY_TYPE attr from the flush notif
+    and clear the entries accordingly, currently only non-static entries are flushed
+    */
     if (bridge_port_id == SAI_NULL_OBJECT_ID && bv_id == SAI_NULL_OBJECT_ID)
     {
         for (auto itr = m_entries.begin(); itr != m_entries.end();)
         {
             auto curr = itr++;
-            if (curr->second.type.find(fdb_type) != std::string::npos)
+            if (curr->second.type != "static" && (curr->first.mac == mac || mac == flush_mac))
             {
-                if (curr->first.mac == mac || mac == flush_mac)
-                {
-                    clearFdbEntry(curr->first.mac, curr->first.bv_id, fdb_type, curr->first.port_name);
-                }
+                clearFdbEntry(curr->first.mac, curr->first.bv_id, curr->first.port_name);
             }
         }
     }
@@ -237,14 +234,11 @@ void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
         for (auto itr = m_entries.begin(); itr != m_entries.end();)
         {
             auto curr = itr++;
-            if (curr->second.type.find(fdb_type) != std::string::npos)
+            if (curr->second.bridge_port_id == bridge_port_id)
             {
-                if (curr->second.bridge_port_id == bridge_port_id)
+                if (curr->second.type != "static" && (curr->first.mac == mac || mac == flush_mac))
                 {
-                    if (curr->first.mac == mac || mac == flush_mac)
-                    {
-                        clearFdbEntry(curr->first.mac, curr->first.bv_id, fdb_type, curr->first.port_name);
-                    }
+                    clearFdbEntry(curr->first.mac, curr->first.bv_id, curr->first.port_name);
                 }
             }
         }
@@ -255,14 +249,11 @@ void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
         for (auto itr = m_entries.begin(); itr != m_entries.end();)
         {
             auto curr = itr++;
-            if (curr->second.type.find(fdb_type) != std::string::npos)
+            if (curr->first.bv_id == bv_id)
             {
-                if (curr->first.bv_id == bv_id)
+                if (curr->second.type != "static" && (curr->first.mac == mac || mac == flush_mac))
                 {
-                    if (curr->first.mac == mac || mac == flush_mac)
-                    {
-                        clearFdbEntry(curr->first.mac, curr->first.bv_id, fdb_type, curr->first.port_name);
-                    }
+                    clearFdbEntry(curr->first.mac, curr->first.bv_id, curr->first.port_name);
                 }
             }
         }
@@ -273,14 +264,11 @@ void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
         for (auto itr = m_entries.begin(); itr != m_entries.end();)
         {
             auto curr = itr++;
-            if (curr->second.type.find(fdb_type) != std::string::npos)
+            if (curr->first.bv_id == bv_id && curr->second.bridge_port_id == bridge_port_id)
             {
-                if (curr->first.bv_id == bv_id && curr->second.bridge_port_id == bridge_port_id)
+                if (curr->second.type != "static" && (curr->first.mac == mac || mac == flush_mac))
                 {
-                    if (curr->first.mac == mac || mac == flush_mac)
-                    {
-                        clearFdbEntry(curr->first.mac, curr->first.bv_id, fdb_type, curr->first.port_name);
-                    }
+                    clearFdbEntry(curr->first.mac, curr->first.bv_id, curr->first.port_name);
                 }
             }
         }
@@ -289,15 +277,14 @@ void FdbOrch::handleSyncdFlushNotif(const sai_object_id_t& bv_id,
 
 void FdbOrch::update(sai_fdb_event_t        type,
                      const sai_fdb_entry_t* entry,
-                     sai_object_id_t        bridge_port_id,
-                     sai_int32_t            fdb_entry_type)
+                     sai_object_id_t        bridge_port_id)
 {
     SWSS_LOG_ENTER();
 
     FdbUpdate update;
     update.entry.mac = entry->mac_address;
     update.entry.bv_id = entry->bv_id;
-    update.type = fdb_entry_type == SAI_FDB_ENTRY_TYPE_STATIC ? "static" : "dynamic";
+    update.type = "dynamic";
     Port vlan;
 
     SWSS_LOG_INFO("FDB event:%d, MAC: %s , BVID: 0x%" PRIx64 " , \
@@ -596,9 +583,9 @@ void FdbOrch::update(sai_fdb_event_t        type,
     case SAI_FDB_EVENT_FLUSHED:
 
         SWSS_LOG_INFO("FDB Flush event received: [ %s , 0x%" PRIx64 " ], \
-                       bridge port ID: 0x%" PRIx64 ". fdb event type %d ",
+                       bridge port ID: 0x%" PRIx64 ".",
                        update.entry.mac.to_string().c_str(), entry->bv_id,
-                       bridge_port_id, fdb_entry_type);
+                       bridge_port_id);
 
         string vlanName = "-";
         if (!vlan.m_alias.empty()) {
@@ -608,7 +595,7 @@ void FdbOrch::update(sai_fdb_event_t        type,
         SWSS_LOG_INFO("FDB Flush: [ %s , %s ] = { port: %s }", update.entry.mac.to_string().c_str(),
                       vlanName.c_str(), update.port.m_alias.c_str());
 
-        handleSyncdFlushNotif(entry->bv_id, bridge_port_id, update.type, update.entry.mac);
+        handleSyncdFlushNotif(entry->bv_id, bridge_port_id, update.entry.mac);
 
         break;
     }
@@ -1010,22 +997,17 @@ void FdbOrch::doTask(NotificationConsumer& consumer)
         for (uint32_t i = 0; i < count; ++i)
         {
             sai_object_id_t oid = SAI_NULL_OBJECT_ID;
-            sai_int32_t fdb_entry_type = 0;
 
             for (uint32_t j = 0; j < fdbevent[i].attr_count; ++j)
             {
                 if (fdbevent[i].attr[j].id == SAI_FDB_ENTRY_ATTR_BRIDGE_PORT_ID)
                 {
                     oid = fdbevent[i].attr[j].value.oid;
-                }
-                else if (fdbevent[i].attr[j].id == SAI_FDB_ENTRY_ATTR_TYPE)
-                {
-                    /* Will be either SAI_FDB_ENTRY_TYPE_DYNAMIC or SAI_FDB_ENTRY_TYPE_STATIC */
-                    fdb_entry_type = fdbevent[i].attr[j].value.s32;
+                    break;
                 }
             }
 
-            this->update(fdbevent[i].event_type, &fdbevent[i].fdb_entry, oid, fdb_entry_type);
+            this->update(fdbevent[i].event_type, &fdbevent[i].fdb_entry, oid);
         }
 
         sai_deserialize_free_fdb_event_ntf(count, fdbevent);
