@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include <linux/if.h>
+#include <net/if.h>
 #include <netlink/route/link.h>
 #include "../mock_table.h"
 #define private public 
@@ -13,6 +13,14 @@ extern "C" {
     struct if_nameindex *__wrap_if_nameindex()
     {
         return if_ni_mock;
+    }
+}
+
+/* Mock if_freenameindex() call */
+extern "C" {
+    void __wrap_if_freenameindex(struct if_nameindex *ptr)
+    {
+        return ;
     }
 }
 
