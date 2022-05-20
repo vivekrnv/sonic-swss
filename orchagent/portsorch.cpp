@@ -118,12 +118,16 @@ static map<string, sai_port_interface_type_t> interface_type_map =
  { "none", SAI_PORT_INTERFACE_TYPE_NONE },
  { "cr", SAI_PORT_INTERFACE_TYPE_CR },
  { "cr4", SAI_PORT_INTERFACE_TYPE_CR4 },
+ { "cr8", SAI_PORT_INTERFACE_TYPE_CR8 },
  { "sr", SAI_PORT_INTERFACE_TYPE_SR },
  { "sr4", SAI_PORT_INTERFACE_TYPE_SR4 },
+ { "sr8", SAI_PORT_INTERFACE_TYPE_SR8 },
  { "lr", SAI_PORT_INTERFACE_TYPE_LR },
  { "lr4", SAI_PORT_INTERFACE_TYPE_LR4 },
+ { "lr8", SAI_PORT_INTERFACE_TYPE_LR8 },
  { "kr", SAI_PORT_INTERFACE_TYPE_KR },
- { "kr4", SAI_PORT_INTERFACE_TYPE_KR4 }
+ { "kr4", SAI_PORT_INTERFACE_TYPE_KR4 },
+ { "kr8", SAI_PORT_INTERFACE_TYPE_KR8 }
 };
 
 // Interface type map used for auto negotiation
@@ -133,13 +137,17 @@ static map<string, sai_port_interface_type_t> interface_type_map_for_an =
     { "cr", SAI_PORT_INTERFACE_TYPE_CR },
     { "cr2", SAI_PORT_INTERFACE_TYPE_CR2 },
     { "cr4", SAI_PORT_INTERFACE_TYPE_CR4 },
+    { "cr8", SAI_PORT_INTERFACE_TYPE_CR8 },
     { "sr", SAI_PORT_INTERFACE_TYPE_SR },
     { "sr2", SAI_PORT_INTERFACE_TYPE_SR2 },
     { "sr4", SAI_PORT_INTERFACE_TYPE_SR4 },
+    { "sr8", SAI_PORT_INTERFACE_TYPE_SR8 },
     { "lr", SAI_PORT_INTERFACE_TYPE_LR },
     { "lr4", SAI_PORT_INTERFACE_TYPE_LR4 },
+    { "lr8", SAI_PORT_INTERFACE_TYPE_LR8 },
     { "kr", SAI_PORT_INTERFACE_TYPE_KR },
     { "kr4", SAI_PORT_INTERFACE_TYPE_KR4 },
+    { "kr8", SAI_PORT_INTERFACE_TYPE_KR8 },
     { "caui", SAI_PORT_INTERFACE_TYPE_CAUI },
     { "gmii", SAI_PORT_INTERFACE_TYPE_GMII },
     { "sfi", SAI_PORT_INTERFACE_TYPE_SFI },
@@ -1190,6 +1198,43 @@ bool PortsOrch::setPortPfc(sai_object_id_t portId, uint8_t pfc_bitmask)
         m_portList[p.m_alias] = p;
     }
 
+    return true;
+}
+
+bool PortsOrch::setPortPfcWatchdogStatus(sai_object_id_t portId, uint8_t pfcwd_bitmask)
+{
+    SWSS_LOG_ENTER();
+
+    Port p;
+
+    if (!getPort(portId, p))
+    {
+        SWSS_LOG_ERROR("Failed to get port object for port id 0x%" PRIx64, portId);
+        return false;
+    }
+    
+    p.m_pfcwd_sw_bitmask = pfcwd_bitmask;
+   
+    m_portList[p.m_alias] = p;
+
+    SWSS_LOG_INFO("Set PFC watchdog port id=0x%" PRIx64 ", bitmast=0x%x", portId, pfcwd_bitmask);
+    return true;
+}
+
+bool PortsOrch::getPortPfcWatchdogStatus(sai_object_id_t portId, uint8_t *pfcwd_bitmask)
+{
+    SWSS_LOG_ENTER();
+
+    Port p;
+
+    if (!pfcwd_bitmask || !getPort(portId, p))
+    {
+        SWSS_LOG_ERROR("Failed to get port object for port id 0x%" PRIx64, portId);
+        return false;
+    }
+    
+    *pfcwd_bitmask = p.m_pfcwd_sw_bitmask;
+    
     return true;
 }
 
@@ -4528,9 +4573,10 @@ bool PortsOrch::removeVlan(Port vlan)
        return false for retry */
     if (vlan.m_fdb_count > 0)
     {
-        SWSS_LOG_NOTICE("VLAN %s still has assiciated FDB entries", vlan.m_alias.c_str());
+        SWSS_LOG_NOTICE("VLAN %s still has %d FDB entries", vlan.m_alias.c_str(), vlan.m_fdb_count);
         return false;
     }
+
     if (m_port_ref_count[vlan.m_alias] > 0)
     {
         SWSS_LOG_ERROR("Failed to remove ref count %d VLAN %s",
@@ -6882,4 +6928,18 @@ std::unordered_set<std::string> PortsOrch::generateCounterStats(const string& ty
         }
     }
     return counter_stats;
+}
+
+bool PortsOrch::decrFdbCount(const std::string& alias, int count)
+{
+    auto itr = m_portList.find(alias);
+    if (itr == m_portList.end())
+    {
+        return false;
+    }
+    else
+    {
+        itr->second.m_fdb_count -= count;
+    }
+    return true;
 }
