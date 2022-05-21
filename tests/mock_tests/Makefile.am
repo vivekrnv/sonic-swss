@@ -141,18 +141,20 @@ tests_portsyncd_LDADD = $(LDADD_GTEST) -lnl-genl-3 -lhiredis -lhiredis \
 ## intfmgrd unit tests
 
 tests_intfmgrd_SOURCES = intfmgrd/add_ipv6_prefix_ut.cpp \
-                        $(top_srcdir)/cfgmgr/intfmgr.cpp \
-                        $(top_srcdir)/orchagent/orch.cpp \
-                        $(top_srcdir)/orchagent/request_parser.cpp \
-                        $(top_srcdir)/lib/subintf.cpp \
-                        mock_orchagent_main.cpp \
-                        mock_dbconnector.cpp \
-                        mock_table.cpp \
-                        mock_hiredis.cpp \
-                        fake_response_publisher.cpp \
-                        mock_redisreply.cpp
+                         $(top_srcdir)/cfgmgr/intfmgr.cpp \
+                         $(top_srcdir)/lib/subintf.cpp \
+                         $(top_srcdir)/orchagent/orch.cpp \
+                         $(top_srcdir)/orchagent/request_parser.cpp \
+                         mock_orchagent_main.cpp \
+                         mock_dbconnector.cpp \
+                         mock_table.cpp \
+                         mock_hiredis.cpp \
+                         fake_response_publisher.cpp \
+                         mock_redisreply.cpp \
+                         common/mock_shell_command.cpp
 
+tests_intfmgrd_INCLUDES = $(tests_INCLUDES) -I$(top_srcdir)/cfgmgr -I$(top_srcdir)/lib
 tests_intfmgrd_CFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(CFLAGS_SAI)
-tests_intfmgrd_CPPFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(CFLAGS_SAI) -I $(top_srcdir)/cfgmgr -I $(top_srcdir)/orchagent/
+tests_intfmgrd_CPPFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(CFLAGS_SAI) $(tests_intfmgrd_INCLUDES)
 tests_intfmgrd_LDADD = $(LDADD_GTEST) $(LDADD_SAI) -lnl-genl-3 -lhiredis -lhiredis \
         -lswsscommon -lswsscommon -lgtest -lgtest_main -lzmq -lnl-3 -lnl-route-3 -lpthread
