@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <linux/if.h>
 #include <netlink/route/link.h>
+#include <netlink/route/link/bridge.h>
 #include "logger.h"
 #include "netmsg.h"
 #include "dbconnector.h"
@@ -215,7 +216,7 @@ void LinkSync::onMsg(int nlmsg_type, struct nl_object *obj)
     /* If netlink for this port has master, we ignore that for now
      * This could be the case where the port was removed from VLAN bridge
      */
-    if (master)
+    if (master && nlmsg_type == RTM_DELLINK)
     {
         return;
     }
