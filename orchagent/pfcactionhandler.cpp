@@ -564,7 +564,7 @@ PfcWdZeroBufferHandler::PfcWdZeroBufferHandler(sai_object_id_t port,
         return;
     }
 
-    setPriorityGroupAndQueueLockFlag(portInstance, true);
+    setQueueLockFlag(portInstance, true);
 
     sai_attribute_t attr;
     attr.id = SAI_QUEUE_ATTR_BUFFER_PROFILE_ID;
@@ -580,7 +580,7 @@ PfcWdZeroBufferHandler::PfcWdZeroBufferHandler(sai_object_id_t port,
     sai_object_id_t oldQueueProfileId = attr.value.oid;
 
     attr.id = SAI_QUEUE_ATTR_BUFFER_PROFILE_ID;
-    attr.value.oid = ZeroBufferProfile::getZeroBufferProfile(false);
+    attr.value.oid = ZeroBufferProfile::getZeroBufferProfile();
 
     // Set our zero buffer profile
     status = sai_queue_api->set_queue_attribute(queue, &attr);
@@ -592,35 +592,6 @@ PfcWdZeroBufferHandler::PfcWdZeroBufferHandler(sai_object_id_t port,
 
     // Save original buffer profile
     m_originalQueueBufferProfile = oldQueueProfileId;
-
-    // Get PG
-    sai_object_id_t pg = portInstance.m_priority_group_ids[static_cast <size_t> (queueId)];
-
-    attr.id = SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE;
-
-    // Get PG's buffer profile
-    status = sai_buffer_api->get_ingress_priority_group_attribute(pg, 1, &attr);
-    if (status != SAI_STATUS_SUCCESS)
-    {
-        SWSS_LOG_ERROR("Failed to get buffer profile ID on PG 0x%" PRIx64 ": %d", pg, status);
-        return;
-    }
-
-    // Set zero profile to PG
-    sai_object_id_t oldPgProfileId = attr.value.oid;
-
-    attr.id = SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE;
-    attr.value.oid = ZeroBufferProfile::getZeroBufferProfile(true);
-
-    status = sai_buffer_api->set_ingress_priority_group_attribute(pg, &attr);
-    if (status != SAI_STATUS_SUCCESS)
-    {
-        SWSS_LOG_ERROR("Failed to set buffer profile ID on pg 0x%" PRIx64 ": %d", pg, status);
-        return;
-    }
-
-    // Save original buffer profile
-    m_originalPgBufferProfile = oldPgProfileId;
 }
 
 PfcWdZeroBufferHandler::~PfcWdZeroBufferHandler(void)
@@ -646,41 +617,12 @@ PfcWdZeroBufferHandler::~PfcWdZeroBufferHandler(void)
         return;
     }
 
-    auto idx = size_t(getQueueId());
-    sai_object_id_t pg = portInstance.m_priority_group_ids[idx];
-    sai_object_id_t pending_profile_id = portInstance.m_priority_group_pending_profile[idx];
-
-    attr.id = SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE;
-
-    if (pending_profile_id != SAI_NULL_OBJECT_ID)
-    {
-        attr.value.oid = pending_profile_id;
-        SWSS_LOG_NOTICE("Priority group %zd on port %s has been restored to pending profile 0x%" PRIx64,
-                        idx, portInstance.m_alias.c_str(), pending_profile_id);
-        portInstance.m_priority_group_pending_profile[idx] = SAI_NULL_OBJECT_ID;
-    }
-    else
-    {
-        attr.value.oid = m_originalPgBufferProfile;
-        SWSS_LOG_NOTICE("Priority group %zd on port %s has been restored to original profile 0x%" PRIx64,
-                        idx, portInstance.m_alias.c_str(), m_originalPgBufferProfile);
-    }
-
-    // Set our zero buffer profile
-    status = sai_buffer_api->set_ingress_priority_group_attribute(pg, &attr);
-    if (status != SAI_STATUS_SUCCESS)
-    {
-        SWSS_LOG_ERROR("Failed to set buffer profile ID on queue 0x%" PRIx64 ": %d", getQueue(), status);
-        return;
-    }
-
-    setPriorityGroupAndQueueLockFlag(portInstance, false);
+    setQueueLockFlag(portInstance, false);
 }
 
-void PfcWdZeroBufferHandler::setPriorityGroupAndQueueLockFlag(Port& port, bool isLocked) const
+void PfcWdZeroBufferHandler::setQueueLockFlag(Port& port, bool isLocked) const
 {
-    // set lock bits on PG and queue
-    port.m_priority_group_lock[static_cast<size_t>(getQueueId())] = isLocked;
+    // set lock bits on queue
     for (size_t i = 0; i < port.m_queue_ids.size(); ++i)
     {
         if (port.m_queue_ids[i] == getQueue())
@@ -700,9 +642,8 @@ PfcWdZeroBufferHandler::ZeroBufferProfile::~ZeroBufferProfile(void)
 {
     SWSS_LOG_ENTER();
 
-    // Destroy ingress and egress profiles and pools
-    destroyZeroBufferProfile(true);
-    destroyZeroBufferProfile(false);
+    // Destroy egress profiles and pools
+    destroyZeroBufferProfile();
 }
 
 PfcWdZeroBufferHandler::ZeroBufferProfile &PfcWdZeroBufferHandler::ZeroBufferProfile::getInstance(void)
@@ -714,38 +655,37 @@ PfcWdZeroBufferHandler::ZeroBufferProfile &PfcWdZeroBufferHandler::ZeroBufferPro
     return instance;
 }
 
-sai_object_id_t& PfcWdZeroBufferHandler::ZeroBufferProfile::getPool(bool ingress)
+sai_object_id_t& PfcWdZeroBufferHandler::ZeroBufferProfile::getPool()
 {
     // If there is a cached zero buffer pool, just use it
     // else fetch zero buffer pool from buffer orch
     // If there is one, use it and increase the reference number.
     // otherwise, just return NULL OID
     // PfcWdZeroBufferHandler will create it later and notify buffer orch later
-    auto &poolId = ingress ? m_zeroIngressBufferPool : m_zeroEgressBufferPool;
-    if (poolId == SAI_NULL_OBJECT_ID)
+    if (m_zeroEgressBufferPool == SAI_NULL_OBJECT_ID)
     {
-        poolId = gBufferOrch->getZeroBufferPool(ingress);
-        if (poolId != SAI_NULL_OBJECT_ID)
+        m_zeroEgressBufferPool = gBufferOrch->getZeroBufferPool(false);
+        if (m_zeroEgressBufferPool != SAI_NULL_OBJECT_ID)
         {
-            gBufferOrch->lockZeroBufferPool(ingress);
+            gBufferOrch->lockZeroBufferPool(false);
         }
     }
-    return poolId;
+    return m_zeroEgressBufferPool;
 }
 
-sai_object_id_t PfcWdZeroBufferHandler::ZeroBufferProfile::getZeroBufferProfile(bool ingress)
+sai_object_id_t PfcWdZeroBufferHandler::ZeroBufferProfile::getZeroBufferProfile()
 {
     SWSS_LOG_ENTER();
 
-    if (getInstance().getProfile(ingress) == SAI_NULL_OBJECT_ID)
+    if (getInstance().getProfile() == SAI_NULL_OBJECT_ID)
     {
-        getInstance().createZeroBufferProfile(ingress);
+        getInstance().createZeroBufferProfile();
     }
 
-    return getInstance().getProfile(ingress);
+    return getInstance().getProfile();
 }
 
-void PfcWdZeroBufferHandler::ZeroBufferProfile::createZeroBufferProfile(bool ingress)
+void PfcWdZeroBufferHandler::ZeroBufferProfile::createZeroBufferProfile()
 {
     SWSS_LOG_ENTER();
 
@@ -753,7 +693,7 @@ void PfcWdZeroBufferHandler::ZeroBufferProfile::createZeroBufferProfile(bool ing
     vector<sai_attribute_t> attribs;
     sai_status_t status;
 
-    auto &poolId = getPool(ingress);
+    auto &poolId = getPool();
 
     if (SAI_NULL_OBJECT_ID == poolId)
     {
@@ -763,7 +703,7 @@ void PfcWdZeroBufferHandler::ZeroBufferProfile::createZeroBufferProfile(bool ing
         attribs.push_back(attr);
 
         attr.id = SAI_BUFFER_POOL_ATTR_TYPE;
-        attr.value.u32 = ingress ? SAI_BUFFER_POOL_TYPE_INGRESS : SAI_BUFFER_POOL_TYPE_EGRESS;
+        attr.value.u32 = SAI_BUFFER_POOL_TYPE_EGRESS;
         attribs.push_back(attr);
 
         attr.id = SAI_BUFFER_POOL_ATTR_THRESHOLD_MODE;
@@ -782,15 +722,15 @@ void PfcWdZeroBufferHandler::ZeroBufferProfile::createZeroBufferProfile(bool ing
         }
 
         // Pass the ownership to BufferOrch
-        gBufferOrch->setZeroBufferPool(ingress, poolId);
-        gBufferOrch->lockZeroBufferPool(ingress);
+        gBufferOrch->setZeroBufferPool(false, poolId);
+        gBufferOrch->lockZeroBufferPool(false);
     }
 
     // Create zero profile
     attribs.clear();
 
     attr.id = SAI_BUFFER_PROFILE_ATTR_POOL_ID;
-    attr.value.oid = getPool(ingress);
+    attr.value.oid = getPool();
     attribs.push_back(attr);
 
     attr.id = SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE;
@@ -806,7 +746,7 @@ void PfcWdZeroBufferHandler::ZeroBufferProfile::createZeroBufferProfile(bool ing
     attribs.push_back(attr);
 
     status = sai_buffer_api->create_buffer_profile(
-            &getProfile(ingress),
+            &getProfile(),
             gSwitchId,
             static_cast<uint32_t>(attribs.size()),
             attribs.data());
@@ -817,13 +757,13 @@ void PfcWdZeroBufferHandler::ZeroBufferProfile::createZeroBufferProfile(bool ing
     }
 }
 
-void PfcWdZeroBufferHandler::ZeroBufferProfile::destroyZeroBufferProfile(bool ingress)
+void PfcWdZeroBufferHandler::ZeroBufferProfile::destroyZeroBufferProfile()
 {
     SWSS_LOG_ENTER();
 
-    if (getProfile(ingress) != SAI_NULL_OBJECT_ID)
+    if (getProfile() != SAI_NULL_OBJECT_ID)
     {
-        sai_status_t status = sai_buffer_api->remove_buffer_profile(getProfile(ingress));
+        sai_status_t status = sai_buffer_api->remove_buffer_profile(getProfile());
         if (status != SAI_STATUS_SUCCESS)
         {
             SWSS_LOG_ERROR("Failed to remove static zero buffer profile for PFC WD: %d", status);
@@ -831,9 +771,8 @@ void PfcWdZeroBufferHandler::ZeroBufferProfile::destroyZeroBufferProfile(bool in
         }
     }
 
-    auto &pool = ingress ? m_zeroIngressBufferPool : m_zeroEgressBufferPool;
-    if (pool != SAI_NULL_OBJECT_ID)
+    if (m_zeroEgressBufferPool != SAI_NULL_OBJECT_ID)
     {
-        gBufferOrch->unlockZeroBufferPool(ingress);
+        gBufferOrch->unlockZeroBufferPool(false);
     }
 }

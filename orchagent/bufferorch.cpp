@@ -1066,7 +1066,6 @@ task_process_status BufferOrch::processPriorityGroup(KeyOpFieldsValuesTuple &tup
     for (string port_name : port_names)
     {
         Port port;
-        bool portUpdated = false;
         SWSS_LOG_DEBUG("processing port:%s", port_name.c_str());
         if (!gPortsOrch->getPort(port_name, port))
         {
@@ -1080,12 +1079,6 @@ task_process_status BufferOrch::processPriorityGroup(KeyOpFieldsValuesTuple &tup
             {
                 SWSS_LOG_ERROR("Invalid pg index specified:%zd", ind);
                 return task_process_status::task_invalid_entry;
-            }
-            if (port.m_priority_group_lock[ind])
-            {
-                SWSS_LOG_WARN("Priority group %zd on port %s is locked, pending profile 0x%" PRIx64 " until unlocked", ind, port_name.c_str(), sai_buffer_profile);
-                portUpdated = true;
-                port.m_priority_group_pending_profile[ind] = sai_buffer_profile;
             }
             else
             {
@@ -1106,10 +1099,6 @@ task_process_status BufferOrch::processPriorityGroup(KeyOpFieldsValuesTuple &tup
                     }
                 }
             }
-        }
-        if (portUpdated)
-        {
-            gPortsOrch->setPort(port_name, port);
         }
     }
 
