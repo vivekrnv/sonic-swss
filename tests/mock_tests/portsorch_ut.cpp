@@ -673,11 +673,14 @@ namespace portsorch_test
         // release zero buffer drop handler
         dropHandler.reset();
 
+        current_remove_buffer_pool_count = _sai_remove_buffer_pool_count;
+
         // Destory the Singleton Class
         PfcWdZeroBufferHandler::ZeroBufferProfile::getInstance().destroyZeroBufferProfile();
 
-        // Check the ref count
+        ASSERT_TRUE(_sai_remove_buffer_pool_count == current_remove_buffer_pool_count + 1);
         ASSERT_TRUE(gBufferOrch->m_egressZeroPoolRefCount == 0);
+        ASSERT_TRUE(gBufferOrch->m_egressZeroBufferPool == SAI_NULL_OBJECT_ID);
 
         clear_pfcwd_zero_buffer_handler();
         _unhook_sai_buffer_and_queue_api();
