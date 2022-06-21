@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <unordered_map>
+#include <chrono>
 #include <limits.h>
 #include "orchdaemon.h"
 #include "logger.h"
@@ -39,6 +40,7 @@ SwitchOrch *gSwitchOrch;
 Directory<Orch*> gDirectory;
 NatOrch *gNatOrch;
 BfdOrch *gBfdOrch;
+QosOrch *gQosOrch;
 
 bool gIsNatSupported = false;
 
@@ -179,9 +181,10 @@ bool OrchDaemon::init()
         CFG_WRED_PROFILE_TABLE_NAME,
         CFG_TC_TO_PRIORITY_GROUP_MAP_TABLE_NAME,
         CFG_PFC_PRIORITY_TO_PRIORITY_GROUP_MAP_TABLE_NAME,
-        CFG_PFC_PRIORITY_TO_QUEUE_MAP_TABLE_NAME
+        CFG_PFC_PRIORITY_TO_QUEUE_MAP_TABLE_NAME,
+        CFG_TC_TO_DSCP_MAP_TABLE_NAME
     };
-    QosOrch *qos_orch = new QosOrch(m_configDb, qos_tables);
+    gQosOrch = new QosOrch(m_configDb, qos_tables);
 
     vector<string> buffer_tables = {
         APP_BUFFER_POOL_TABLE_NAME,
@@ -274,7 +277,7 @@ bool OrchDaemon::init()
      * when iterating ConsumerMap. This is ensured implicitly by the order of keys in ordered map.
      * For cases when Orch has to process tables in specific order, like PortsOrch during warm start, it has to override Orch::doTask()
      */
-    m_orchList = { gSwitchOrch, gCrmOrch, gPortsOrch, gBufferOrch, gIntfsOrch, gNeighOrch, gRouteOrch, copp_orch, qos_orch, wm_orch, policer_orch, tunnel_decap_orch, sflow_orch, debug_counter_orch, mux_orch, mux_cb_orch, gBfdOrch};
+    m_orchList = { gSwitchOrch, gCrmOrch, gPortsOrch, gBufferOrch, gIntfsOrch, gNeighOrch, gRouteOrch, copp_orch, gQosOrch, wm_orch, policer_orch, tunnel_decap_orch, sflow_orch, debug_counter_orch, mux_orch, mux_cb_orch, gBfdOrch};
 
     bool initialize_dtel = false;
     if (platform == BFN_PLATFORM_SUBSTRING || platform == VS_PLATFORM_SUBSTRING)
@@ -548,12 +551,25 @@ void OrchDaemon::start()
         m_select->addSelectables(o->getSelectables());
     }
 
+    auto tstart = std::chrono::high_resolution_clock::now();
+
     while (true)
     {
         Selectable *s;
         int ret;
 
         ret = m_select->select(&s, SELECT_TIMEOUT);
+
+        auto tend = std::chrono::high_resolution_clock::now();
+
+        auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(tend - tstart);
+
+        if (diff.count() >= SELECT_TIMEOUT)
+        {
+            tstart = std::chrono::high_resolution_clock::now();
+
+            flush();
+        }
 
         if (ret == Select::ERROR)
         {
