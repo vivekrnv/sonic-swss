@@ -120,7 +120,7 @@ private:
     bool storeFdbEntryState(const FdbUpdate& update);
     void notifyTunnelOrch(Port& port);
 
-    void clearFdbEntry(const MacAddress&, const sai_object_id_t&, const string&);
+    void clearFdbEntry(const FdbEntry&);
     void handleSyncdFlushNotif(const sai_object_id_t&, const sai_object_id_t&, const MacAddress& );
 };
 
