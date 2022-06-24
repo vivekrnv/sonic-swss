@@ -406,8 +406,8 @@ namespace portsorch_test
         {
             std::ostringstream oss;
             oss << it.first << ":3-4";
-            pgTable.set(oss.str(), { { "profile", "[BUFFER_PROFILE_TABLE:egress_profile]" } });
-            queueTable.set(oss.str(), { {"profile", "[BUFFER_PROFILE_TABLE:ingress_profile]" } });
+            pgTable.set(oss.str(), { { "profile", "[BUFFER_PROFILE_TABLE:ingress_profile]" } });
+            queueTable.set(oss.str(), { {"profile", "[BUFFER_PROFILE_TABLE:egress_profile]" } });
         }
         gBufferOrch->addExistingData(&pgTable);
         gBufferOrch->addExistingData(&poolTable);
