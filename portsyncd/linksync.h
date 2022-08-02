@@ -37,6 +37,5 @@ private:
 }
 
 void handlePortConfigFromConfigDB(swss::ProducerStateTable &, swss::DBConnector &, bool );
-void handlePortConfig(swss::ProducerStateTable &, std::map<std::string, swss::KeyOpFieldsValuesTuple> &);
 
 #endif

@@ -30,7 +30,6 @@ int main(int argc, char **argv)
 {
     Logger::linkToDbNative("portsyncd");
     int opt;
-    map<string, KeyOpFieldsValuesTuple> port_cfg_map;
 
     while ((opt = getopt(argc, argv, "v:h")) != -1 )
     {
@@ -49,7 +48,6 @@ int main(int argc, char **argv)
     DBConnector appl_db("APPL_DB", 0);
     DBConnector state_db("STATE_DB", 0);
     ProducerStateTable p(&appl_db, APP_PORT_TABLE_NAME);
-    SubscriberStateTable portCfg(&cfgDb, CFG_PORT_TABLE_NAME);
 
     WarmStart::initialize("portsyncd", "swss");
     WarmStart::checkWarmStart("portsyncd", "swss");
@@ -71,7 +69,6 @@ int main(int argc, char **argv)
         NetDispatcher::getInstance().registerMessageHandler(RTM_DELLINK, &sync);
 
         s.addSelectable(&netlink);
-        s.addSelectable(&portCfg);
 
         while (true)
         {
@@ -113,28 +110,6 @@ int main(int argc, char **argv)
 
                     g_init = true;
                 }
-                if (!port_cfg_map.empty())
-                {
-                    handlePortConfig(p, port_cfg_map);
-                }
-            }
-            else if (temps == (Selectable *)&portCfg)
-            {
-                std::deque<KeyOpFieldsValuesTuple> entries;
-                portCfg.pops(entries);
-
-                for (auto entry: entries)
-                {
-                    string key = kfvKey(entry);
-
-                    if (port_cfg_map.find(key) != port_cfg_map.end())
-                    {
-                        /* For now we simply drop previous pending port config */
-                        port_cfg_map.erase(key);
-                    }
-                    port_cfg_map[key] = entry;
-                }
-                handlePortConfig(p, port_cfg_map);
             }
             else
             {
