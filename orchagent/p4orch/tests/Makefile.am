@@ -42,7 +42,7 @@ p4orch_tests_SOURCES = $(ORCHAGENT_DIR)/orch.cpp \
 		       $(P4ORCH_DIR)/acl_rule_manager.cpp \
 		       $(P4ORCH_DIR)/wcmp_manager.cpp \
 		       $(P4ORCH_DIR)/mirror_session_manager.cpp \
-		       $(top_srcdir)/tests/mock_tests/common/fake_response_publisher.cpp \
+		       $(top_srcdir)/tests/mock_tests/fake_response_publisher.cpp \
 		       fake_portorch.cpp \
 		       fake_crmorch.cpp \
 		       fake_flexcounterorch.cpp \
