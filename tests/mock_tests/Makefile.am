@@ -9,7 +9,6 @@ TESTS = tests tests_intfmgrd tests_portsyncd
 noinst_PROGRAMS = tests tests_intfmgrd tests_portsyncd
 
 LDADD_SAI = -lsaimeta -lsaimetadata -lsaivs -lsairedis
-LDADD_COMMON = -lnl-genl-3 -lhiredis -lswsscommon -lgtest -lgtest_main -lzmq -lnl-3 -lnl-route-3 -lpthread
 
 if DEBUG
 DBGFLAGS = -ggdb -DDEBUG
@@ -20,21 +19,9 @@ endif
 CFLAGS_GTEST =
 LDADD_GTEST = -L/usr/src/gtest
 
-mock_swsscommon_SOURCES = common/mock_shell_command.cpp \
-                          common/mock_redisreply.cpp \
-                          common/mock_dbconnector.cpp \
-                          common/mock_hiredis.cpp \
-                          common/mock_table.cpp \
-                          common/mock_consumerstatetable.cpp
-
-mock_swss_SOURCES = common/mock_orchagent_main.cpp \
-                    common/fake_response_publisher.cpp
-
-mock_sai_SOURCES = common/ut_saihelper.cpp
-
 ## Orchagent Unit Tests
 
-tests_INCLUDES = -I $(FLEX_CTR_DIR) -I $(DEBUG_CTR_DIR) -I $(top_srcdir)/lib -I$(top_srcdir)/cfgmgr -I$(top_srcdir)/orchagent -Iincludes
+tests_INCLUDES = -I $(FLEX_CTR_DIR) -I $(DEBUG_CTR_DIR) -I $(top_srcdir)/lib -I$(top_srcdir)/cfgmgr -I$(top_srcdir)/orchagent 
 
 tests_SOURCES = aclorch_ut.cpp \
                 portsorch_ut.cpp \
@@ -47,12 +34,18 @@ tests_SOURCES = aclorch_ut.cpp \
                 saispy_ut.cpp \
                 consumer_ut.cpp \
                 sfloworh_ut.cpp \
+                ut_saihelper.cpp \
+                mock_orchagent_main.cpp \
+                mock_dbconnector.cpp \
+                mock_consumerstatetable.cpp \
+                common/mock_shell_command.cpp \
+                mock_table.cpp \
+                mock_hiredis.cpp \
+                mock_redisreply.cpp \
                 bulker_ut.cpp \
                 portmgr_ut.cpp \
+                fake_response_publisher.cpp \
                 swssnet_ut.cpp \
-                $(mock_swsscommon_SOURCES) \
-                $(mock_sai_SOURCES) \
-                $(mock_swss_SOURCES) \
                 flowcounterrouteorch_ut.cpp \
                 $(top_srcdir)/lib/gearboxutils.cpp \
                 $(top_srcdir)/lib/subintf.cpp \
@@ -129,7 +122,26 @@ tests_SOURCES += $(P4_ORCH_DIR)/p4orch.cpp \
 
 tests_CFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(CFLAGS_SAI) 
 tests_CPPFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(CFLAGS_SAI) $(tests_INCLUDES)
-tests_LDADD = $(LDADD_GTEST) $(LDADD_SAI) $(LDADD_COMMON)
+tests_LDADD = $(LDADD_GTEST) $(LDADD_SAI) -lnl-genl-3 -lhiredis -lhiredis -lpthread \
+        -lswsscommon -lswsscommon -lgtest -lgtest_main -lzmq -lnl-3 -lnl-route-3
+
+## portsyncd unit tests
+
+tests_portsyncd_SOURCES = portsyncd/portsyncd_ut.cpp \
+                          $(top_srcdir)/portsyncd/linksync.cpp \
+                          $(top_srcdir)/portsyncd/portsyncd_helper.cpp \
+                          mock_dbconnector.cpp \
+                          common/mock_shell_command.cpp \
+                          mock_table.cpp \
+                          mock_hiredis.cpp \
+                          mock_redisreply.cpp
+
+tests_portsyncd_INCLUDES = -I $(top_srcdir)/portsyncd -I $(top_srcdir)/cfgmgr
+tests_portsyncd_CXXFLAGS = -Wl,-wrap,if_nameindex -Wl,-wrap,if_freenameindex
+tests_portsyncd_CFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST)
+tests_portsyncd_CPPFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(tests_portsyncd_INCLUDES)
+tests_portsyncd_LDADD = $(LDADD_GTEST) -lnl-genl-3 -lhiredis -lhiredis \
+        -lswsscommon -lswsscommon -lgtest -lgtest_main -lnl-3 -lnl-route-3 -lpthread
 
 ## intfmgrd unit tests
 
@@ -138,22 +150,16 @@ tests_intfmgrd_SOURCES = intfmgrd/add_ipv6_prefix_ut.cpp \
                          $(top_srcdir)/lib/subintf.cpp \
                          $(top_srcdir)/orchagent/orch.cpp \
                          $(top_srcdir)/orchagent/request_parser.cpp \
-                         $(mock_swsscommon_SOURCES) \
-                         $(mock_swss_SOURCES)
+                         mock_orchagent_main.cpp \
+                         mock_dbconnector.cpp \
+                         mock_table.cpp \
+                         mock_hiredis.cpp \
+                         fake_response_publisher.cpp \
+                         mock_redisreply.cpp \
+                         common/mock_shell_command.cpp
 
+tests_intfmgrd_INCLUDES = $(tests_INCLUDES) -I$(top_srcdir)/cfgmgr -I$(top_srcdir)/lib
 tests_intfmgrd_CFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(CFLAGS_SAI)
-tests_intfmgrd_CPPFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(CFLAGS_SAI) $(tests_INCLUDES)
-tests_intfmgrd_LDADD = $(LDADD_GTEST) $(LDADD_SAI) $(LDADD_COMMON)
-
-## portsyncd unit tests
-
-tests_portsyncd_SOURCES = portsyncd/portsyncd_ut.cpp \
-                          $(top_srcdir)/portsyncd/linksync.cpp \
-                          $(top_srcdir)/portsyncd/portsyncd_helper.cpp \
-                          $(mock_swsscommon_SOURCES)
-
-tests_portsyncd_INCLUDES = -I $(top_srcdir)/lib -I$(top_srcdir)/portsyncd -I$(top_srcdir)/cfgmgr -Iincludes
-tests_portsyncd_CXXFLAGS = -Wl,-wrap,if_nameindex -Wl,-wrap,if_freenameindex
-tests_portsyncd_CFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST)
-tests_portsyncd_CPPFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(tests_portsyncd_INCLUDES)
-tests_portsyncd_LDADD = $(LDADD_GTEST) $(LDADD_COMMON)
+tests_intfmgrd_CPPFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(CFLAGS_SAI) $(tests_intfmgrd_INCLUDES)
+tests_intfmgrd_LDADD = $(LDADD_GTEST) $(LDADD_SAI) -lnl-genl-3 -lhiredis -lhiredis \
+        -lswsscommon -lswsscommon -lgtest -lgtest_main -lzmq -lnl-3 -lnl-route-3 -lpthread

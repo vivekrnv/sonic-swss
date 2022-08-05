@@ -1,6 +1,6 @@
-#include "ut_helper.h"
-#include "mock_orchagent_main.h"
-#include "mock_table.h"
+#include "../ut_helper.h"
+#include "../mock_orchagent_main.h"
+#include "../mock_table.h"
 #include "port.h"
 #define private public // Need to modify internal cache
 #include "portsorch.h"

@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 #include <net/if.h>
 #include <netlink/route/link.h>
-#include "mock_table.h"
+#include "../mock_table.h"
 #define private public 
 #include "linksync.h"
 #undef private

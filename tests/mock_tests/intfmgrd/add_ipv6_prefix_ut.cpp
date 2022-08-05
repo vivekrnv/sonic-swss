@@ -3,7 +3,7 @@
 #include <fstream>  
 #include <unistd.h>
 #include <sys/stat.h>
-#include "mock_table.h"
+#include "../mock_table.h"
 #include "warm_restart.h"
 #define private public
 #include "intfmgr.h"
