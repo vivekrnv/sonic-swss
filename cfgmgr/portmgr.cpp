@@ -7,6 +7,7 @@
 #include "exec.h"
 #include "shellcmd.h"
 #include <swss/redisutility.h>
+#include <algorithm>
 
 using namespace std;
 using namespace swss;
@@ -124,11 +125,7 @@ void PortMgr::doTask(Consumer &consumer)
                 }
             }
 
-            for (auto &entry : field_values)
-            {
-                writeConfigToAppDb(alias, fvField(entry), fvValue(entry));
-                SWSS_LOG_NOTICE("Configure %s %s to %s", alias.c_str(), fvField(entry).c_str(), fvValue(entry).c_str());
-            }
+            writeConfigToAppDb(alias, field_values);
 
             if (!portOk)
             {
@@ -173,6 +170,16 @@ bool PortMgr::writeConfigToAppDb(const std::string &alias, const std::string &fi
     FieldValueTuple fv(field, value);
     fvs.push_back(fv);
     m_appPortTable.set(alias, fvs);
+    SWSS_LOG_NOTICE("Configure %s %s to %s", alias.c_str(), field.c_str(), value.c_str());
+    return true;
+}
 
+bool PortMgr::writeConfigToAppDb(const std::string &alias, const std::vector<FieldValueTuple>& fvs)
+{
+    m_appPortTable.set(alias, fvs);
+    string result;
+    std::for_each(fvs.begin(), fvs.end(), [&](const FieldValueTuple& tup)
+                 {result += fvField(tup) + std::string(":") + fvValue(tup) + std::string(" ");});
+    SWSS_LOG_NOTICE("Configure %s, %s", alias.c_str(), result.c_str());
     return true;
 }
