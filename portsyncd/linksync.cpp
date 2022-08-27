@@ -260,4 +260,3 @@ void LinkSync::onMsg(int nlmsg_type, struct nl_object *obj)
         SWSS_LOG_NOTICE("Cannot find %s in port table", key.c_str());
     }
 }
-
