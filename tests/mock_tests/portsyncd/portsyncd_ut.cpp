@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 #include <net/if.h>
 #include <netlink/route/link.h>
-#include "../mock_table.h"
+#include "mock_table.h"
 #define private public 
 #include "linksync.h"
 #undef private
@@ -26,7 +26,29 @@ extern "C" {
 
 extern std::string mockCmdStdcout;
 extern std::vector<std::string> mockCallArgs;
-extern std::set<std::string> g_portSet;
+std::set<std::string> g_portSet;
+bool g_init = false;
+
+void writeToApplDB(swss::ProducerStateTable &p, swss::DBConnector &cfgDb)
+{
+    swss::Table table(&cfgDb, CFG_PORT_TABLE_NAME);
+    std::vector<swss::FieldValueTuple> ovalues;
+    std::vector<std::string> keys;
+    table.getKeys(keys);
+
+    for ( auto &k : keys )
+    {
+        table.get(k, ovalues);
+        std::vector<swss::FieldValueTuple> attrs;
+        for ( auto &v : ovalues )
+        {
+            swss::FieldValueTuple attr(v.first, v.second);
+            attrs.push_back(attr);
+        }
+        p.set(k, attrs);
+        g_portSet.insert(k);
+    }
+}
 
 /*
 Test Fixture 
@@ -175,41 +197,6 @@ namespace portsyncd_ut
         ASSERT_EQ(keys.back(), "eth0");
         ASSERT_EQ(mockCallArgs.back(), "cat /sys/class/net/\"eth0\"/operstate");
     }
-    
-    TEST_F(PortSyncdTest, test_handlePortConfigFromConfigDB)
-    {  
-        swss::ProducerStateTable p(m_app_db.get(), APP_PORT_TABLE_NAME);
-        populateCfgDb(m_portCfgTable.get());
-        swss::DBConnector cfg_db_conn("CONFIG_DB", 0);
-        handlePortConfigFromConfigDB(p, cfg_db_conn, false);
-        ASSERT_EQ(g_portSet.size(), 2);
-        ASSERT_NE(g_portSet.find("Ethernet0"), g_portSet.end());
-        ASSERT_NE(g_portSet.find("Ethernet4"), g_portSet.end());
-        std::vector<std::string> keys_to_app_db;
-        m_portAppTable->getKeys(keys_to_app_db);
-        ASSERT_EQ(keys_to_app_db.size(), 3);
-        std::sort(keys_to_app_db.begin(), keys_to_app_db.end());
-        ASSERT_EQ(keys_to_app_db[0], "Ethernet0");
-        ASSERT_EQ(keys_to_app_db[1], "Ethernet4");
-        ASSERT_EQ(keys_to_app_db[2], "PortConfigDone");
-        std::string count;
-        ASSERT_EQ(m_portAppTable->hget("PortConfigDone", "count", count), true);
-        ASSERT_EQ(count, "2");
-    }
-
-    TEST_F(PortSyncdTest, test_handlePortConfigFromConfigDBWarmBoot)
-    {   
-        swss::ProducerStateTable p(m_app_db.get(), APP_PORT_TABLE_NAME);
-        populateCfgDb(m_portCfgTable.get());
-        swss::DBConnector cfg_db_conn("CONFIG_DB", 0);
-        handlePortConfigFromConfigDB(p, cfg_db_conn, true);
-        ASSERT_EQ(g_portSet.size(), 2);
-        ASSERT_NE(g_portSet.find("Ethernet0"), g_portSet.end());
-        ASSERT_NE(g_portSet.find("Ethernet4"), g_portSet.end());
-        std::vector<std::string> keys_to_app_db;
-        m_portAppTable->getKeys(keys_to_app_db);
-        ASSERT_EQ(keys_to_app_db.size(), 0);
-    }
 
     TEST_F(PortSyncdTest, test_cacheOldIfaces)
     {  
@@ -229,7 +216,7 @@ namespace portsyncd_ut
 
         /* Handle CFG DB notifs and Write them to APPL_DB */
         swss::ProducerStateTable p(m_app_db.get(), APP_PORT_TABLE_NAME);
-        handlePortConfigFromConfigDB(p, cfg_db_conn, false);
+        writeToApplDB(p, cfg_db_conn);
 
         /* Generate a netlink notification about the netdev iface */
         std::vector<unsigned int> flags = {IFF_UP, IFF_RUNNING};
@@ -271,7 +258,7 @@ namespace portsyncd_ut
 
         /* Handle CFG DB notifs and Write them to APPL_DB */
         swss::ProducerStateTable p(m_app_db.get(), APP_PORT_TABLE_NAME);
-        handlePortConfigFromConfigDB(p, cfg_db_conn, false);
+        writeToApplDB(p, cfg_db_conn);;
 
         /* Generate a netlink notification about the netdev iface */
         std::vector<unsigned int> flags = {IFF_UP, IFF_RUNNING};

@@ -129,7 +129,6 @@ tests_LDADD = $(LDADD_GTEST) $(LDADD_SAI) -lnl-genl-3 -lhiredis -lhiredis -lpthr
 
 tests_portsyncd_SOURCES = portsyncd/portsyncd_ut.cpp \
                           $(top_srcdir)/portsyncd/linksync.cpp \
-                          $(top_srcdir)/portsyncd/portsyncd_helper.cpp \
                           mock_dbconnector.cpp \
                           common/mock_shell_command.cpp \
                           mock_table.cpp \
