@@ -6,6 +6,8 @@
 #include <netlink/route/link.h>
 #include "logger.h"
 #include "netmsg.h"
+#include "dbconnector.h"
+#include "producerstatetable.h"
 #include "tokenize.h"
 #include "exec.h"
 
@@ -88,7 +90,7 @@ LinkSync::LinkSync(DBConnector *appl_db, DBConnector *state_db) :
 
     if (!WarmStart::isWarmStart())
     {
-        /* See the comments for g_portSet  */
+        /* See the comments for g_portSet in portsyncd.cpp */
         for (auto port_iter = g_portSet.begin(); port_iter != g_portSet.end();)
         {
             string port = *port_iter;
