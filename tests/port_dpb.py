@@ -242,10 +242,8 @@ class DPB():
 
         for cp in child_ports:
             assert(cp.exists_in_config_db() == False)
-        time.sleep(1)
         for cp in child_ports:
             assert(cp.exists_in_app_db() == False)
-        time.sleep(1)
         for cp in child_ports:
             assert(cp.exists_in_asic_db() == False)
         #print "Verified child ports are deleted from all DBs"
@@ -277,11 +275,9 @@ class DPB():
             assert(cp.exists_in_config_db() == True)
             cp.verify_config_db()
         #print "Config DB verification passed"
-        time.sleep(1)
         for cp in child_ports:
             assert(cp.exists_in_app_db() == True)
             cp.verify_app_db()
-        time.sleep(1)
         #print "APP DB verification passed"
         for cp in child_ports:
             assert(cp.exists_in_asic_db() == True)
