@@ -37,7 +37,7 @@ bool PortMgr::setPortMtu(const string &alias, const string &mtu)
     }
     else if (!isPortStateOk(alias))
     {
-        // Can happen when a DEL notification is sent by portmgrd followed by a pending mtu SET notification
+        // Can happen when a DEL notification is sent by portmgrd immediately followed by a new SET notif
         SWSS_LOG_WARN("Setting mtu to alias:%s netdev failed with cmd:%s, rc:%d, error:%s", alias.c_str(), cmd_str.c_str(), ret, res.c_str());
         return false;
     }
@@ -63,7 +63,7 @@ bool PortMgr::setPortAdminStatus(const string &alias, const bool up)
     }
     else if (!isPortStateOk(alias))
     {
-        // Can happen when a DEL notification is sent by portmgrd followed by a pending admin_status SET notification
+        // Can happen when a DEL notification is sent by portmgrd immediately followed by a new SET notification
         SWSS_LOG_WARN("Setting admin_status to alias:%s netdev failed with cmd%s, rc:%d, error:%s", alias.c_str(), cmd_str.c_str(), ret, res.c_str());
         return false;
     }
