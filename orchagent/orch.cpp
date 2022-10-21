@@ -12,6 +12,7 @@
 #include "tokenize.h"
 #include "logger.h"
 #include "consumerstatetable.h"
+#include "sai_serialize.h"
 
 using namespace swss;
 

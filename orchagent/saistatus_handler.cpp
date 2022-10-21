@@ -200,7 +200,7 @@ void SaiStatusHandler::notifyAbort(){
     * This function sets the ORCH_ABORT_STATUS flag in STATE_DB and aborts itself
     */
     swss::DBConnector m_db("STATE_DB", 0);
-    m_db.set(ORCH_ABRT, "1");
+    m_db.set(SaiStatusHandler::ORCH_ABRT, "1");
     abort();
 }
 
@@ -209,5 +209,5 @@ void SaiStatusHandler::clearAbortFlag(){
     * This function clears the ORCH_ABORT_STATUS flag in STATE_DB
     */
     swss::DBConnector m_db("STATE_DB", 0);
-    m_db.del(ORCH_ABRT);
+    m_db.del(SaiStatusHandler::ORCH_ABRT);
 }
