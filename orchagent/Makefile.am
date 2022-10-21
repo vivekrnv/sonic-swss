@@ -45,6 +45,7 @@ orchagent_SOURCES = \
             main.cpp \
             $(top_srcdir)/lib/gearboxutils.cpp \
             $(top_srcdir)/lib/subintf.cpp \
+            sai_status_handler.cpp \
             orchdaemon.cpp \
             orch.cpp \
             notifications.cpp \

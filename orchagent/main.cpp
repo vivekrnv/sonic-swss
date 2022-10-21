@@ -126,7 +126,7 @@ void syncd_apply_view()
     if (status != SAI_STATUS_SUCCESS)
     {
         SWSS_LOG_ERROR("Failed to notify syncd APPLY_VIEW %d", status);
-        exit(EXIT_FAILURE);
+        SaiStatusHandler::notifyAbort();
     }
 }
 
@@ -421,6 +421,8 @@ int main(int argc, char **argv)
 
     SWSS_LOG_NOTICE("--- Starting Orchestration Agent ---");
 
+    SaiStatusHandler::clearAbortFlag();
+
     initSaiApi();
     initSaiRedis(record_location, sairedis_rec_filename);
 
@@ -603,7 +605,7 @@ int main(int argc, char **argv)
     if (status != SAI_STATUS_SUCCESS)
     {
         SWSS_LOG_ERROR("Failed to create a switch, rv:%d", status);
-        exit(EXIT_FAILURE);
+        SaiStatusHandler::notifyAbort();
     }
     SWSS_LOG_NOTICE("Create a switch, id:%" PRIu64, gSwitchId);
 
@@ -634,7 +636,7 @@ int main(int argc, char **argv)
             if (status != SAI_STATUS_SUCCESS)
             {
                 SWSS_LOG_ERROR("Failed to get MAC address from switch, rv:%d", status);
-                exit(EXIT_FAILURE);
+                SaiStatusHandler::notifyAbort();
             }
             else
             {
@@ -649,7 +651,7 @@ int main(int argc, char **argv)
         if (status != SAI_STATUS_SUCCESS)
         {
             SWSS_LOG_ERROR("Fail to get switch virtual router ID %d", status);
-            exit(EXIT_FAILURE);
+            SaiStatusHandler::notifyAbort();
         }
 
         gVirtualRouterId = attr.value.oid;
@@ -691,7 +693,7 @@ int main(int argc, char **argv)
         if (status != SAI_STATUS_SUCCESS)
         {
             SWSS_LOG_ERROR("Failed to create underlay router interface %d", status);
-            exit(EXIT_FAILURE);
+            SaiStatusHandler::notifyAbort();
         }
 
         SWSS_LOG_NOTICE("Created underlay router interface ID %" PRIx64, gUnderlayIfId);
