@@ -25,7 +25,6 @@ extern "C" {
 #include <logger.h>
 
 #include "orchdaemon.h"
-#include "saistatus_handler.h"
 #include "sai_serialize.h"
 #include "saihelper.h"
 #include "notifications.h"
