@@ -154,6 +154,7 @@ tests_intfmgrd_SOURCES = intfmgrd/add_ipv6_prefix_ut.cpp \
                          $(top_srcdir)/lib/subintf.cpp \
                          $(top_srcdir)/orchagent/orch.cpp \
                          $(top_srcdir)/orchagent/request_parser.cpp \
+                         $(top_srcdir)/orchagent/saistatus_handler.cpp \
                          mock_orchagent_main.cpp \
                          mock_dbconnector.cpp \
                          mock_table.cpp \
