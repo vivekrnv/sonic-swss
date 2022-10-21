@@ -5,6 +5,7 @@
 #include "producerstatetable.h"
 #include "consumertable.h"
 #include "select.h"
+#include "saistatus_handler.h"
 
 #include "portsorch.h"
 #include "fabricportsorch.h"

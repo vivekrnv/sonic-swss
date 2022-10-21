@@ -1,10 +1,6 @@
-#include "orch.h"
+#include "saistatus_handler.h"
 
-// namespace SaiStatusHandler {
-//     extern const std::string ORCH_ABRT = "ORCH_ABRT_STATUS";
-// }
-
-inline task_process_status SaiStatusHandler::handleCreate(sai_api_t api, sai_status_t status, void *context)
+task_process_status SaiStatusHandler::handleCreate(sai_api_t api, sai_status_t status, void *context)
 {
     /*
      * This function aims to provide coarse handling of failures in sairedis create
@@ -36,6 +32,7 @@ inline task_process_status SaiStatusHandler::handleCreate(sai_api_t api, sai_sta
                     SWSS_LOG_ERROR("Encountered failure in create operation, exiting orchagent, SAI API: %s, status: %s",
                                 sai_serialize_api(api).c_str(), sai_serialize_status(status).c_str());
                     SaiStatusHandler::notifyAbort();
+                    break;
             }
             break;
         case SAI_API_HOSTIF:
@@ -54,7 +51,9 @@ inline task_process_status SaiStatusHandler::handleCreate(sai_api_t api, sai_sta
                     SWSS_LOG_ERROR("Encountered failure in create operation, exiting orchagent, SAI API: %s, status: %s",
                                 sai_serialize_api(api).c_str(), sai_serialize_status(status).c_str());
                     SaiStatusHandler::notifyAbort();
+                    break;
             }
+            break;
         default:
             switch (status)
             {
@@ -65,12 +64,13 @@ inline task_process_status SaiStatusHandler::handleCreate(sai_api_t api, sai_sta
                     SWSS_LOG_ERROR("Encountered failure in create operation, exiting orchagent, SAI API: %s, status: %s",
                                 sai_serialize_api(api).c_str(), sai_serialize_status(status).c_str());
                     SaiStatusHandler::notifyAbort();
+                    break;
             }
     }
     return task_need_retry;
 }
 
-inline task_process_status SaiStatusHandler::handleSet(sai_api_t api, sai_status_t status, void *context)
+task_process_status SaiStatusHandler::handleSet(sai_api_t api, sai_status_t status, void *context)
 {
     /*
      * This function aims to provide coarse handling of failures in sairedis set
@@ -106,17 +106,20 @@ inline task_process_status SaiStatusHandler::handleSet(sai_api_t api, sai_status
                     SWSS_LOG_ERROR("Encountered failure in set operation, exiting orchagent, SAI API: %s, status: %s",
                             sai_serialize_api(api).c_str(), sai_serialize_status(status).c_str());
                     SaiStatusHandler::notifyAbort();
+                    break;
             }
+            break;
         default:
             SWSS_LOG_ERROR("Encountered failure in set operation, exiting orchagent, SAI API: %s, status: %s",
                         sai_serialize_api(api).c_str(), sai_serialize_status(status).c_str());
             SaiStatusHandler::notifyAbort();
+            break;
     }
 
     return task_need_retry;
 }
 
-inline task_process_status SaiStatusHandler::handleRemove(sai_api_t api, sai_status_t status, void *context)
+task_process_status SaiStatusHandler::handleRemove(sai_api_t api, sai_status_t status, void *context)
 {
     /*
      * This function aims to provide coarse handling of failures in sairedis remove
@@ -139,11 +142,12 @@ inline task_process_status SaiStatusHandler::handleRemove(sai_api_t api, sai_sta
             SWSS_LOG_ERROR("Encountered failure in remove operation, exiting orchagent, SAI API: %s, status: %s",
                         sai_serialize_api(api).c_str(), sai_serialize_status(status).c_str());
             SaiStatusHandler::notifyAbort();
+            break;
     }
     return task_need_retry;
 }
 
-inline task_process_status SaiStatusHandler::handleGet(sai_api_t api, sai_status_t status, void *context)
+task_process_status SaiStatusHandler::handleGet(sai_api_t api, sai_status_t status, void *context)
 {
     /*
      * This function aims to provide coarse handling of failures in sairedis get
@@ -172,7 +176,7 @@ inline task_process_status SaiStatusHandler::handleGet(sai_api_t api, sai_status
     return task_failed;
 }
 
-inline bool SaiStatusHandler::parseFailure(task_process_status status)
+bool SaiStatusHandler::parseFailure(task_process_status status)
 {
     /*
      * This function parses task process status from SAI failure handling function to whether a retry is needed.
@@ -191,19 +195,19 @@ inline bool SaiStatusHandler::parseFailure(task_process_status status)
     return true;
 }
 
-inline void SaiStatusHandler::notifyAbort(){
+void SaiStatusHandler::notifyAbort(){
     /*
     * This function sets the ORCH_ABORT_STATUS flag in STATE_DB and aborts itself
     */
     swss::DBConnector m_db("STATE_DB", 0);
-    m_db.set(SaiStatusHandler::ORCH_ABRT, "1");
+    m_db.set(ORCH_ABRT, "1");
     abort();
 }
 
-inline void SaiStatusHandler::clearAbortFlag(){
+void SaiStatusHandler::clearAbortFlag(){
     /*
     * This function clears the ORCH_ABORT_STATUS flag in STATE_DB
     */
     swss::DBConnector m_db("STATE_DB", 0);
-    m_db.del(SaiStatusHandler::ORCH_ABRT);
+    m_db.del(ORCH_ABRT);
 }
