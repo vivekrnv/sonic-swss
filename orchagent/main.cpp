@@ -31,6 +31,7 @@ extern "C" {
 #include <signal.h>
 #include "warm_restart.h"
 #include "gearboxutils.h"
+#include "sai_status_handler.h"
 
 using namespace std;
 using namespace swss;
