@@ -12,7 +12,6 @@
 #include "tokenize.h"
 #include "logger.h"
 #include "consumerstatetable.h"
-#include "sai_serialize.h"
 
 using namespace swss;
 
@@ -873,7 +872,7 @@ task_process_status Orch::handleSaiRemoveStatus(sai_api_t api, sai_status_t stat
 
 task_process_status Orch::handleSaiGetStatus(sai_api_t api, sai_status_t status, void *context)
 {
-    return SaiStatusHandler::handleget(api, status, context);
+    return SaiStatusHandler::handleGet(api, status, context);
 }
 
 bool Orch::parseHandleSaiStatusFailure(task_process_status status)

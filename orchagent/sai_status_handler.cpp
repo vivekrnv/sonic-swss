@@ -1,6 +1,10 @@
-#include "sai_status_handler.h"
+#include "orch.h"
 
-inline task_process_status SaiStatusHandler::handleCreate(sai_api_t api, sai_status_t status, void *context, const string err)
+// namespace SaiStatusHandler {
+//     extern const std::string ORCH_ABRT = "ORCH_ABRT_STATUS";
+// }
+
+inline task_process_status SaiStatusHandler::handleCreate(sai_api_t api, sai_status_t status, void *context)
 {
     /*
      * This function aims to provide coarse handling of failures in sairedis create
@@ -66,7 +70,7 @@ inline task_process_status SaiStatusHandler::handleCreate(sai_api_t api, sai_sta
     return task_need_retry;
 }
 
-inline task_process_status SaiStatusHandler::handleSet(sai_api_t api, sai_status_t status, void *context, const string err)
+inline task_process_status SaiStatusHandler::handleSet(sai_api_t api, sai_status_t status, void *context)
 {
     /*
      * This function aims to provide coarse handling of failures in sairedis set
@@ -112,7 +116,7 @@ inline task_process_status SaiStatusHandler::handleSet(sai_api_t api, sai_status
     return task_need_retry;
 }
 
-inline task_process_status SaiStatusHandler::handleRemove(sai_api_t api, sai_status_t status, void *context, const string err)
+inline task_process_status SaiStatusHandler::handleRemove(sai_api_t api, sai_status_t status, void *context)
 {
     /*
      * This function aims to provide coarse handling of failures in sairedis remove
@@ -201,5 +205,5 @@ inline void SaiStatusHandler::clearAbortFlag(){
     * This function clears the ORCH_ABORT_STATUS flag in STATE_DB
     */
     swss::DBConnector m_db("STATE_DB", 0);
-    m_statedb.del(SaiStatusHandler::ORCH_ABRT);
+    m_db.del(SaiStatusHandler::ORCH_ABRT);
 }
