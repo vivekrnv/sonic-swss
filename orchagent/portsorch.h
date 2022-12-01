@@ -131,9 +131,17 @@ public:
 
     bool setPortPfcWatchdogStatus(sai_object_id_t portId, uint8_t pfc_bitmask);
     bool getPortPfcWatchdogStatus(sai_object_id_t portId, uint8_t *pfc_bitmask);
+    
+    void generateQueueMap(map<string, FlexCounterQueueStates> queuesStateVector);
+    uint32_t getNumberOfPortSupportedQueueCounters(string port);
+    void createPortBufferQueueCounters(const Port &port, string queues);
+    void removePortBufferQueueCounters(const Port &port, string queues);
 
-    void generateQueueMap();
-    void generatePriorityGroupMap();
+    void generatePriorityGroupMap(map<string, FlexCounterPgStates> pgsStateVector);
+    uint32_t getNumberOfPortSupportedPgCounters(string port);
+    void createPortBufferPgCounters(const Port &port, string pgs);
+    void removePortBufferPgCounters(const Port& port, string pgs);
+
     void generatePortCounterMap();
     void generatePortBufferDropCounterMap();
 
@@ -182,10 +190,12 @@ public:
 
 private:
     unique_ptr<Table> m_counterTable;
+    unique_ptr<Table> m_counterSysPortTable;
     unique_ptr<Table> m_counterLagTable;
     unique_ptr<Table> m_portTable;
     unique_ptr<Table> m_gearboxTable;
     unique_ptr<Table> m_queueTable;
+    unique_ptr<Table> m_voqTable;
     unique_ptr<Table> m_queuePortTable;
     unique_ptr<Table> m_queueIndexTable;
     unique_ptr<Table> m_queueTypeTable;
@@ -251,6 +261,7 @@ private:
     map<set<int>, tuple<string, uint32_t, int, string, int, string>> m_lanesAliasSpeedMap;
     map<string, Port> m_portList;
     map<string, vlan_members_t> m_portVlanMember;
+    map<string, std::vector<sai_object_id_t>> m_port_voq_ids;
     /* mapping from SAI object ID to Name for faster
      * retrieval of Port/VLAN from object ID for events
      * coming from SAI
@@ -288,6 +299,8 @@ private:
     void initializePriorityGroups(Port &port);
     void initializePortBufferMaximumParameters(Port &port);
     void initializeQueues(Port &port);
+    void initializeSchedulerGroups(Port &port);
+    void initializeVoqs(Port &port);
 
     bool addHostIntfs(Port &port, string alias, sai_object_id_t &host_intfs_id);
     bool setHostIntfsStripTag(Port &port, sai_hostif_vlan_tag_t strip);
@@ -344,13 +357,9 @@ private:
     bool getQueueTypeAndIndex(sai_object_id_t queue_id, string &type, uint8_t &index);
 
     bool m_isQueueMapGenerated = false;
-    void generateQueueMapPerPort(const Port& port);
-    void removeQueueMapPerPort(const Port& port);
-
+    void generateQueueMapPerPort(const Port& port, FlexCounterQueueStates& queuesState, bool voq);
     bool m_isPriorityGroupMapGenerated = false;
-    void generatePriorityGroupMapPerPort(const Port& port);
-    void removePriorityGroupMapPerPort(const Port& port);
-
+    void generatePriorityGroupMapPerPort(const Port& port, FlexCounterPgStates& pgsState);
     bool m_isPortCounterMapGenerated = false;
     bool m_isPortBufferDropCounterMapGenerated = false;
 
