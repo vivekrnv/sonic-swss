@@ -126,7 +126,7 @@ void syncd_apply_view()
     if (status != SAI_STATUS_SUCCESS)
     {
         SWSS_LOG_ERROR("Failed to notify syncd APPLY_VIEW %d", status);
-        SaiStatusHandler::notifyAbort();
+        notifyAbort();
     }
 }
 
@@ -421,8 +421,6 @@ int main(int argc, char **argv)
 
     SWSS_LOG_NOTICE("--- Starting Orchestration Agent ---");
 
-    SaiStatusHandler::clearAbortFlag();
-
     initSaiApi();
     initSaiRedis(record_location, sairedis_rec_filename);
 
@@ -487,6 +485,9 @@ int main(int argc, char **argv)
     DBConnector appl_db("APPL_DB", 0);
     DBConnector config_db("CONFIG_DB", 0);
     DBConnector state_db("STATE_DB", 0);
+
+    /* Clears the ORCH_ABORT_STATUS flag in STATE_DB */
+    state_db.del(ORCH_ABRT);
 
     // Get switch_type
     getCfgSwitchType(&config_db, gMySwitchType);
@@ -605,7 +606,7 @@ int main(int argc, char **argv)
     if (status != SAI_STATUS_SUCCESS)
     {
         SWSS_LOG_ERROR("Failed to create a switch, rv:%d", status);
-        SaiStatusHandler::notifyAbort();
+        exit(EXIT_FAILURE);
     }
     SWSS_LOG_NOTICE("Create a switch, id:%" PRIu64, gSwitchId);
 
@@ -636,7 +637,7 @@ int main(int argc, char **argv)
             if (status != SAI_STATUS_SUCCESS)
             {
                 SWSS_LOG_ERROR("Failed to get MAC address from switch, rv:%d", status);
-                SaiStatusHandler::notifyAbort();
+                notifyAbort();
             }
             else
             {
@@ -651,7 +652,7 @@ int main(int argc, char **argv)
         if (status != SAI_STATUS_SUCCESS)
         {
             SWSS_LOG_ERROR("Fail to get switch virtual router ID %d", status);
-            SaiStatusHandler::notifyAbort();
+            notifyAbort();
         }
 
         gVirtualRouterId = attr.value.oid;
@@ -693,7 +694,7 @@ int main(int argc, char **argv)
         if (status != SAI_STATUS_SUCCESS)
         {
             SWSS_LOG_ERROR("Failed to create underlay router interface %d", status);
-            SaiStatusHandler::notifyAbort();
+            notifyAbort();
         }
 
         SWSS_LOG_NOTICE("Created underlay router interface ID %" PRIx64, gUnderlayIfId);

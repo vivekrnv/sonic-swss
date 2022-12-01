@@ -4,9 +4,9 @@ P4_ORCH_DIR = $(top_srcdir)/orchagent/p4orch
 
 CFLAGS_SAI = -I /usr/include/sai
 
-TESTS = tests tests_intfmgrd tests_portsyncd
+TESTS = tests tests_intfmgrd tests_portsyncd tests_fpmsyncd
 
-noinst_PROGRAMS = tests tests_intfmgrd tests_portsyncd
+noinst_PROGRAMS = tests tests_intfmgrd tests_portsyncd tests_fpmsyncd
 
 LDADD_SAI = -lsaimeta -lsaimetadata -lsaivs -lsairedis
 
@@ -51,7 +51,6 @@ tests_SOURCES = aclorch_ut.cpp \
                 $(top_srcdir)/lib/gearboxutils.cpp \
                 $(top_srcdir)/lib/subintf.cpp \
                 $(top_srcdir)/orchagent/orchdaemon.cpp \
-                $(top_srcdir)/orchagent/saistatus_handler.cpp \
                 $(top_srcdir)/orchagent/orch.cpp \
                 $(top_srcdir)/orchagent/notifications.cpp \
                 $(top_srcdir)/orchagent/routeorch.cpp \
@@ -154,7 +153,6 @@ tests_intfmgrd_SOURCES = intfmgrd/add_ipv6_prefix_ut.cpp \
                          $(top_srcdir)/lib/subintf.cpp \
                          $(top_srcdir)/orchagent/orch.cpp \
                          $(top_srcdir)/orchagent/request_parser.cpp \
-                         $(top_srcdir)/orchagent/saistatus_handler.cpp \
                          mock_orchagent_main.cpp \
                          mock_dbconnector.cpp \
                          mock_table.cpp \
@@ -168,3 +166,14 @@ tests_intfmgrd_CFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST
 tests_intfmgrd_CPPFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(CFLAGS_SAI) $(tests_intfmgrd_INCLUDES)
 tests_intfmgrd_LDADD = $(LDADD_GTEST) $(LDADD_SAI) -lnl-genl-3 -lhiredis -lhiredis \
         -lswsscommon -lswsscommon -lgtest -lgtest_main -lzmq -lnl-3 -lnl-route-3 -lpthread
+
+## fpmsyncd unit tests
+
+tests_fpmsyncd_SOURCES = fpmsyncd/test_fpmlink.cpp \
+                         $(top_srcdir)/fpmsyncd/fpmlink.cpp
+
+tests_fpmsyncd_INCLUDES = $(tests_INCLUDES) -I$(top_srcdir)/tests_fpmsyncd -I$(top_srcdir)/lib -I$(top_srcdir)/warmrestart
+tests_fpmsyncd_CFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(CFLAGS_SAI)
+tests_fpmsyncd_CPPFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(CFLAGS_SAI) $(tests_fpmsyncd_INCLUDES)
+tests_fpmsyncd_LDADD = $(LDADD_GTEST) $(LDADD_SAI) -lnl-genl-3 -lhiredis -lhiredis \
+        -lswsscommon -lswsscommon -lgtest -lgtest_main -lzmq -lnl-3 -lnl-route-3 -lpthread -lgmock -lgmock_main
