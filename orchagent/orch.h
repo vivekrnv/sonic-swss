@@ -60,7 +60,7 @@ typedef enum
 } task_process_status;
 
 
-void notifyAbort();
+void notifyAndAbort();
 
 typedef struct
 {
