@@ -126,7 +126,8 @@ void syncd_apply_view()
     if (status != SAI_STATUS_SUCCESS)
     {
         SWSS_LOG_ERROR("Failed to notify syncd APPLY_VIEW %d", status);
-        notifyAndAbort();
+        notifyAbort();
+        abort();
     }
 }
 
@@ -637,7 +638,8 @@ int main(int argc, char **argv)
             if (status != SAI_STATUS_SUCCESS)
             {
                 SWSS_LOG_ERROR("Failed to get MAC address from switch, rv:%d", status);
-                notifyAndAbort();
+                notifyAbort();
+                abort();
             }
             else
             {
@@ -652,7 +654,8 @@ int main(int argc, char **argv)
         if (status != SAI_STATUS_SUCCESS)
         {
             SWSS_LOG_ERROR("Fail to get switch virtual router ID %d", status);
-            notifyAndAbort();
+            notifyAbort();
+            abort();
         }
 
         gVirtualRouterId = attr.value.oid;
@@ -694,7 +697,8 @@ int main(int argc, char **argv)
         if (status != SAI_STATUS_SUCCESS)
         {
             SWSS_LOG_ERROR("Failed to create underlay router interface %d", status);
-            notifyAndAbort();
+            notifyAbort();
+            abort();
         }
 
         SWSS_LOG_NOTICE("Created underlay router interface ID %" PRIx64, gUnderlayIfId);
