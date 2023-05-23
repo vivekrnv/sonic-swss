@@ -10,19 +10,6 @@
 using namespace std;
 using namespace swss;
 
-map<string,string> sflowSpeedRateInitMap =
-{
-    {SFLOW_SAMPLE_RATE_KEY_800G, SFLOW_SAMPLE_RATE_VALUE_800G},
-    {SFLOW_SAMPLE_RATE_KEY_400G, SFLOW_SAMPLE_RATE_VALUE_400G},
-    {SFLOW_SAMPLE_RATE_KEY_200G, SFLOW_SAMPLE_RATE_VALUE_200G},
-    {SFLOW_SAMPLE_RATE_KEY_100G, SFLOW_SAMPLE_RATE_VALUE_100G},
-    {SFLOW_SAMPLE_RATE_KEY_50G, SFLOW_SAMPLE_RATE_VALUE_50G},
-    {SFLOW_SAMPLE_RATE_KEY_40G, SFLOW_SAMPLE_RATE_VALUE_40G},
-    {SFLOW_SAMPLE_RATE_KEY_25G, SFLOW_SAMPLE_RATE_VALUE_25G},
-    {SFLOW_SAMPLE_RATE_KEY_10G, SFLOW_SAMPLE_RATE_VALUE_10G},
-    {SFLOW_SAMPLE_RATE_KEY_1G, SFLOW_SAMPLE_RATE_VALUE_1G}
-};
-
 SflowMgr::SflowMgr(DBConnector *cfgDb, DBConnector *appDb, const vector<string> &tableNames) :
         Orch(cfgDb, tableNames),
         m_cfgSflowTable(cfgDb, CFG_SFLOW_TABLE_NAME),
@@ -113,7 +100,7 @@ void SflowMgr::sflowUpdatePortInfo(Consumer &consumer)
                 if (new_port || (speed_change && !m_sflowPortConfMap[key].local_rate_cfg))
                 {
                     vector<FieldValueTuple> fvs;
-                    sflowGetGlobalInfo(fvs, m_sflowPortConfMap[key].speed);
+                    sflowGetGlobalInfo(fvs, key);
                     m_appSflowSessionTable.set(key, fvs);
                 }
             }
@@ -155,7 +142,7 @@ void SflowMgr::sflowHandleSessionAll(bool enable)
             }
             else
             {
-                sflowGetGlobalInfo(fvs, it.second.speed);
+                sflowGetGlobalInfo(fvs, it.first);
             }
             m_appSflowSessionTable.set(it.first, fvs);
         }
@@ -186,21 +173,13 @@ void SflowMgr::sflowHandleSessionLocal(bool enable)
     }
 }
 
-void SflowMgr::sflowGetGlobalInfo(vector<FieldValueTuple> &fvs, string speed)
+void SflowMgr::sflowGetGlobalInfo(vector<FieldValueTuple> &fvs, const string& alias)
 {
     string rate;
     FieldValueTuple fv1("admin_state", "up");
     fvs.push_back(fv1);
 
-    if (speed != SFLOW_ERROR_SPEED_STR && sflowSpeedRateInitMap.find(speed) != sflowSpeedRateInitMap.end())
-    {
-        rate = sflowSpeedRateInitMap[speed];
-    }
-    else
-    {
-        rate = SFLOW_ERROR_SPEED_STR;
-    }
-    FieldValueTuple fv2("sample_rate",rate);
+    FieldValueTuple fv2("sample_rate", findSamplingRate(alias));
     fvs.push_back(fv2);
 }
 
@@ -256,16 +235,7 @@ void SflowMgr::sflowCheckAndFillValues(string alias, vector<FieldValueTuple> &va
             m_sflowPortConfMap[alias].local_rate_cfg)
         {
             string speed = m_sflowPortConfMap[alias].speed;
-
-            if (speed != SFLOW_ERROR_SPEED_STR && sflowSpeedRateInitMap.find(speed) != sflowSpeedRateInitMap.end())
-            {
-                rate = sflowSpeedRateInitMap[speed];
-            }
-            else
-            {
-                rate = SFLOW_ERROR_SPEED_STR;
-            }
-            m_sflowPortConfMap[alias].rate = rate;
+            m_sflowPortConfMap[alias].rate = findSamplingRate(alias);
         }
         m_sflowPortConfMap[alias].local_rate_cfg = false;
         FieldValueTuple fv("sample_rate", m_sflowPortConfMap[alias].rate);
@@ -283,6 +253,17 @@ void SflowMgr::sflowCheckAndFillValues(string alias, vector<FieldValueTuple> &va
         FieldValueTuple fv("admin_state", m_sflowPortConfMap[alias].admin);
         fvs.push_back(fv);
     }
+}
+
+string SflowMgr::findSamplingRate(const string& alias)
+{
+    /* Default sampling rate is equal to the speed in Gbps or error */
+    if (m_sflowPortConfMap.find(alias) == m_sflowPortConfMap.end())
+    {
+        SWSS_LOG_ERROR("%s not found in port configuration map", alias.c_str());
+        return SFLOW_ERROR_SPEED_STR;
+    }
+    return m_sflowPortConfMap[alias].speed;
 }
 
 void SflowMgr::doTask(Consumer &consumer)
@@ -412,7 +393,7 @@ void SflowMgr::doTask(Consumer &consumer)
                     if (m_intfAllConf)
                     {
                         vector<FieldValueTuple> fvs;
-                        sflowGetGlobalInfo(fvs, m_sflowPortConfMap[key].speed);
+                        sflowGetGlobalInfo(fvs, key);
                         m_appSflowSessionTable.set(key,fvs);
                     }
                 }
