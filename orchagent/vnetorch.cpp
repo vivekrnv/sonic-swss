@@ -1061,8 +1061,8 @@ bool VNetRouteOrch::selectNextHopGroup(const string& vnet,
     else if (!hasNextHopGroup(vnet, nexthops_primary))
     {
         SWSS_LOG_INFO("Creating next hop group  %s", nexthops_primary.to_string().c_str());
-        setEndpointMonitor(vnet, monitors, nexthops_primary, "", ipPrefix);
-        if (!createNextHopGroup(vnet, nexthops_primary, vrf_obj, ""))
+        setEndpointMonitor(vnet, monitors, nexthops_primary, monitoring, ipPrefix);
+        if (!createNextHopGroup(vnet, nexthops_primary, vrf_obj, monitoring))
         {
             delEndpointMonitor(vnet, nexthops_primary, ipPrefix);
             return false;
@@ -2156,7 +2156,7 @@ void VNetRouteOrch::updateVnetTunnel(const BfdUpdate& update)
     size_t found_vrf = key.find(state_db_key_delimiter);
     if (found_vrf == string::npos)
     {
-        SWSS_LOG_ERROR("Failed to parse key %s, no vrf is given", key.c_str());
+        SWSS_LOG_INFO("Failed to parse key %s, no vrf is given", key.c_str());
         return;
     }
 
