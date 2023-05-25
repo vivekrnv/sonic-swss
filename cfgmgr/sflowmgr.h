@@ -11,12 +11,15 @@
 namespace swss {
 
 #define SFLOW_ERROR_SPEED_STR "error"
+#define SFLOW_NA_SPEED_STR "N/A"
 
 struct SflowPortInfo
 {
     bool        local_rate_cfg;
     bool        local_admin_cfg;
+    bool        autoneg_enabled;
     std::string speed;
+    std::string oper_speed;
     std::string rate;
     std::string admin;
 };
@@ -27,12 +30,10 @@ typedef std::map<std::string, SflowPortInfo> SflowPortConfMap;
 class SflowMgr : public Orch
 {
 public:
-    SflowMgr(DBConnector *cfgDb, DBConnector *appDb, const std::vector<std::string> &tableNames);
+    SflowMgr(DBConnector *appDb, const std::vector<TableConnector>& tableNames);
 
     using Orch::doTask;
 private:
-    Table                  m_cfgSflowTable;
-    Table                  m_cfgSflowSessionTable;
     ProducerStateTable     m_appSflowTable;
     ProducerStateTable     m_appSflowSessionTable;
     SflowPortConfMap       m_sflowPortConfMap;
@@ -42,6 +43,7 @@ private:
     void doTask(Consumer &consumer);
     void sflowHandleService(bool enable);
     void sflowUpdatePortInfo(Consumer &consumer);
+    void sflowProcessOperSpeed(Consumer &consumer);
     void sflowHandleSessionAll(bool enable);
     void sflowHandleSessionLocal(bool enable);
     void sflowCheckAndFillValues(std::string alias, std::vector<FieldValueTuple> &values, std::vector<FieldValueTuple> &fvs);
