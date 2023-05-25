@@ -76,6 +76,20 @@ namespace sflowmgr_ut
         appl_sflow_table.get("Ethernet0", values);
         value_rate = swss::fvsGetValue(values, "sample_rate", true);
         ASSERT_TRUE(value_rate.get() == "25000");
+
+        cfg_port_table.set("Ethernet0", {
+            {"speed", "100000"},
+            {"autoneg", "off"}
+        });
+
+        m_sflowMgr->addExistingData(&cfg_port_table);
+        m_sflowMgr->doTask();
+
+        /* Sample rate should be back to configured speed if auto-neg is disabled */
+        values.clear();
+        appl_sflow_table.get("Ethernet0", values);
+        value_rate = swss::fvsGetValue(values, "sample_rate", true);
+        ASSERT_TRUE(value_rate.get() == "100000");
     }
 
     TEST_F(SflowMgrTest, test_OnlyStateDbNotif)

@@ -78,7 +78,7 @@ void SflowMgr::sflowUpdatePortInfo(Consumer &consumer)
                 m_sflowPortConfMap[key] = port_info;
             }
 
-            bool speed_change = false;
+            bool rate_update = false;
             string new_speed = SFLOW_ERROR_SPEED_STR;
             for (auto i : values)
             {
@@ -89,23 +89,20 @@ void SflowMgr::sflowUpdatePortInfo(Consumer &consumer)
                 else if (fvField(i) == "autoneg")
                 {   
                     m_sflowPortConfMap[key].autoneg_enabled = fvValue(i) == "on" ? true : false;
-                    if (fvValue(i) != "on")
-                    {
-                        /* If auto-neg is disabled, update sample_rate based on configured speed */
-                        speed_change = true;
-                    }
+                    /* If autoneg is diabled, should set the rate back to configured speed */
+                    rate_update = !m_sflowPortConfMap[key].autoneg_enabled;
                 }
             }
             if (m_sflowPortConfMap[key].speed != new_speed)
             {
                 m_sflowPortConfMap[key].speed = new_speed;
-                speed_change = true;
+                rate_update = true;
             }
 
             if (m_gEnable && m_intfAllConf)
             {
                 // If the Local rate Conf is already present, dont't override it even though the speed is changed
-                if (new_port || (speed_change && !m_sflowPortConfMap[key].local_rate_cfg))
+                if (new_port || (rate_update && !m_sflowPortConfMap[key].local_rate_cfg))
                 {
                     vector<FieldValueTuple> fvs;
                     sflowGetGlobalInfo(fvs, key);
@@ -230,7 +227,6 @@ void SflowMgr::sflowHandleSessionLocal(bool enable)
 
 void SflowMgr::sflowGetGlobalInfo(vector<FieldValueTuple> &fvs, const string& alias)
 {
-    string rate;
     FieldValueTuple fv1("admin_state", "up");
     fvs.push_back(fv1);
 
