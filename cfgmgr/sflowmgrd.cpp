@@ -62,6 +62,8 @@ int main(int argc, char **argv)
 
         SflowMgr sflowmgr(&appDb, sflow_tables);
 
+        sflowmgr.readPortConfig();
+
         vector<Orch *> orchList = {&sflowmgr};
 
         swss::Select s;

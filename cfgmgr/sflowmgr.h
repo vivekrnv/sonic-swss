@@ -17,7 +17,6 @@ struct SflowPortInfo
 {
     bool        local_rate_cfg;
     bool        local_admin_cfg;
-    bool        autoneg_enabled;
     std::string speed;
     std::string oper_speed;
     std::string rate;
@@ -31,6 +30,7 @@ class SflowMgr : public Orch
 {
 public:
     SflowMgr(DBConnector *appDb, const std::vector<TableConnector>& tableNames);
+    void readPortConfig();
 
     using Orch::doTask;
 private:

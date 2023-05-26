@@ -19,6 +19,20 @@ SflowMgr::SflowMgr(DBConnector *appDb, const std::vector<TableConnector>& tableN
     m_gEnable = false;
 }
 
+void SflowMgr::readPortConfig()
+{
+    auto consumer_it = m_consumerMap.find(CFG_PORT_TABLE_NAME);
+    if (consumer_it != m_consumerMap.end())
+    {
+        consumer_it->second->drain();
+        SWSS_LOG_INFO("Port Configuration Read..");
+    }
+    else
+    {
+        throw std::runtime_error("Consumer for config db PORT_TABLE not found");
+    }
+}
+
 void SflowMgr::sflowHandleService(bool enable)
 {
     stringstream cmd;
@@ -70,7 +84,6 @@ void SflowMgr::sflowUpdatePortInfo(Consumer &consumer)
                 new_port = true;
                 port_info.local_rate_cfg = false;
                 port_info.local_admin_cfg = false;
-                port_info.autoneg_enabled = false;
                 port_info.speed = SFLOW_ERROR_SPEED_STR;
                 port_info.oper_speed = SFLOW_NA_SPEED_STR;
                 port_info.rate = "";
@@ -85,12 +98,6 @@ void SflowMgr::sflowUpdatePortInfo(Consumer &consumer)
                 if (fvField(i) == "speed")
                 {
                     new_speed = fvValue(i);
-                }
-                else if (fvField(i) == "autoneg")
-                {   
-                    m_sflowPortConfMap[key].autoneg_enabled = fvValue(i) == "on" ? true : false;
-                    /* If autoneg is diabled, should set the rate back to configured speed */
-                    rate_update = !m_sflowPortConfMap[key].autoneg_enabled;
                 }
             }
             if (m_sflowPortConfMap[key].speed != new_speed)
@@ -139,29 +146,38 @@ void SflowMgr::sflowProcessOperSpeed(Consumer &consumer)
         string alias = kfvKey(t);
         string op = kfvOp(t);
         auto values = kfvFieldsValues(t);
-        string oper_speed = "";
-        bool iface_found = true;
-        
+        string oper_speed = SFLOW_NA_SPEED_STR;
+        bool oper_status = false;
+
         for (auto i : values)
         {
             if (fvField(i) == "speed")
             {
                 oper_speed = fvValue(i);
             }
+            else if (fvField(i) == "netdev_oper_status")
+            {
+                oper_status = fvValue(i) == "up" ? true : false;
+            }
         }
+
+        /* When the oper_status is down, the speed (if present) is just a stale entry and hence discard */
+        oper_speed = oper_status ? oper_speed : SFLOW_NA_SPEED_STR;
 
         if (m_sflowPortConfMap.find(alias) == m_sflowPortConfMap.end())
         {
-            SWSS_LOG_NOTICE("Port %s not found in port conf map", alias.c_str());
-            iface_found = false;
+            SWSS_LOG_ERROR("Port %s not found in port conf map", alias.c_str());
         }
-
-        if (oper_speed != m_sflowPortConfMap[alias].oper_speed &&
-            iface_found && op == SET_COMMAND)
+        else
         {
-            m_sflowPortConfMap[alias].oper_speed = oper_speed;
-            if (!m_sflowPortConfMap[alias].local_rate_cfg && m_gEnable &&
-                m_intfAllConf && m_sflowPortConfMap[alias].autoneg_enabled)
+            bool speed_change = false;
+            if (m_sflowPortConfMap[alias].oper_speed != oper_speed)
+            {
+                speed_change = true;
+                m_sflowPortConfMap[alias].oper_speed = oper_speed;
+            }
+            if (speed_change && m_gEnable && m_intfAllConf &&
+                !m_sflowPortConfMap[alias].local_rate_cfg)
             {
                 auto rate = findSamplingRate(alias);
                 FieldValueTuple fv("sample_rate", rate);
@@ -170,8 +186,7 @@ void SflowMgr::sflowProcessOperSpeed(Consumer &consumer)
                 SWSS_LOG_INFO("Default sampling rate for %s updated to %s", alias.c_str(), rate.c_str());
             }
         }
-        /* Do nothing for DEL as the SflowPortConfMap will already be cleared by the DEL from CONFIG_DB 
-           Also don't act on the notifications from the STATE_DB if the speed is not set, happens during init by portsyncd */
+        /* Do nothing for DEL as the SflowPortConfMap will already be cleared by the DEL from CONFIG_DB */ 
         it = consumer.m_toSync.erase(it);
     }
 }
@@ -308,7 +323,7 @@ void SflowMgr::sflowCheckAndFillValues(string alias, vector<FieldValueTuple> &va
 string SflowMgr::findSamplingRate(const string& alias)
 {
     /* Default sampling rate is equal to the oper_speed in Gbps or error 
-        if auto_neg is not configured, use the configured speed */
+        if oper_speed is not found, use the configured speed */
     if (m_sflowPortConfMap.find(alias) == m_sflowPortConfMap.end())
     {
         SWSS_LOG_ERROR("%s not found in port configuration map", alias.c_str());
@@ -316,8 +331,7 @@ string SflowMgr::findSamplingRate(const string& alias)
     }
     string oper_speed = m_sflowPortConfMap[alias].oper_speed;
     string cfg_speed = m_sflowPortConfMap[alias].speed;
-    bool autoneg = m_sflowPortConfMap[alias].autoneg_enabled;
-    if (autoneg && !oper_speed.empty() && oper_speed != SFLOW_NA_SPEED_STR)
+    if (!oper_speed.empty() && oper_speed != SFLOW_NA_SPEED_STR)
     {
         return oper_speed;
     }
