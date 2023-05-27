@@ -74,8 +74,7 @@ namespace sflowmgr_ut
 
         /* Scenario: Operational Speed Changes to 25000 */
         state_port_table.set("Ethernet0", {
-            {"speed", "25000"},
-            {"netdev_oper_status", "up"}
+            {"speed", "25000"}
         });
 
         m_sflowMgr->addExistingData(&state_port_table);
@@ -86,22 +85,6 @@ namespace sflowmgr_ut
         value_rate = swss::fvsGetValue(values, "sample_rate", true);
         ASSERT_TRUE(value_rate);
         ASSERT_TRUE(value_rate.get() == "25000");
-
-        /* oper status is down since rate_neg is disabled */
-        state_port_table.set("Ethernet0", {
-            {"speed", "25000"},
-            {"netdev_oper_status", "down"}
-        });
-
-        m_sflowMgr->addExistingData(&state_port_table);
-        m_sflowMgr->doTask();
-
-        values.clear();
-        appl_sflow_table.get("Ethernet0", values);
-        value_rate = swss::fvsGetValue(values, "sample_rate", true);
-        ASSERT_TRUE(value_rate);
-        /* Sample rate is restored to original value */
-        ASSERT_TRUE(value_rate.get() == "100000");
     }
 
     TEST_F(SflowMgrTest, test_RateConfigurationOperUpDown)
@@ -117,20 +100,33 @@ namespace sflowmgr_ut
             {"speed", "100000"},
         });
 
-        /* Scenario: Operational Speed Changes to 100G, no autoneg */
+        /* Scenario: Operational Speed Changes to 100G with autoneg */
         state_port_table.set("Ethernet0", {
-            {"speed", "100000"},
-            {"netdev_oper_status", "up"}
+            {"speed", "100000"}
         });
 
         m_sflowMgr->addExistingData(&cfg_port_table);
         m_sflowMgr->addExistingData(&state_port_table);
         m_sflowMgr->doTask();
 
-        /* Scenario: Operational Speed Changes to 25G, with autoneg */
+        /* User changes the config speed to 10G */
+        cfg_port_table.set("Ethernet0", {
+            {"speed", "10000"},
+        });
+
+        m_sflowMgr->addExistingData(&cfg_port_table);
+        m_sflowMgr->doTask();
+
+        values.clear();
+        appl_sflow_table.get("Ethernet0", values);
+        auto value_rate = swss::fvsGetValue(values, "sample_rate", true);
+        ASSERT_TRUE(value_rate);
+        /* Rate Should still adhere to oper_speed */
+        ASSERT_TRUE(value_rate.get() == "100000");
+
+        /* Scenario: Operational Speed Changes to 10G, with autoneg */
         state_port_table.set("Ethernet0", {
-            {"speed", "25000"},
-            {"netdev_oper_status", "up"}
+            {"speed", "10000"}
         });
 
         m_sflowMgr->addExistingData(&state_port_table);
@@ -138,16 +134,10 @@ namespace sflowmgr_ut
 
         values.clear();
         appl_sflow_table.get("Ethernet0", values);
-        auto value_rate = swss::fvsGetValue(values, "sample_rate", true);
+        value_rate = swss::fvsGetValue(values, "sample_rate", true);
         ASSERT_TRUE(value_rate);
         /* Rate is supposed to be updated */
-        ASSERT_TRUE(value_rate.get() == "25000");
-
-        /* rate_neg is disabled and oper status happen to get disabled */
-        state_port_table.set("Ethernet0", {
-            {"speed", "25000"},
-            {"netdev_oper_status", "down"}
-        });
+        ASSERT_TRUE(value_rate.get() == "10000");
 
         /* Configured speed is updated by user */
         cfg_port_table.set("Ethernet0", {
@@ -162,7 +152,8 @@ namespace sflowmgr_ut
         appl_sflow_table.get("Ethernet0", values);
         value_rate = swss::fvsGetValue(values, "sample_rate", true);
         ASSERT_TRUE(value_rate);
-        ASSERT_TRUE(value_rate.get() == "200000");
+        /* Sampling Rate will not be updated */
+        ASSERT_TRUE(value_rate.get() == "10000");
     }
 
     TEST_F(SflowMgrTest, test_OnlyStateDbNotif)
@@ -243,8 +234,7 @@ namespace sflowmgr_ut
 
         /* Operational Speed Changes again to 50000 */
         state_port_table.set("Ethernet0", {
-            {"speed", "50000"},
-            {"netdev_oper_status", "up"}
+            {"speed", "50000"}
         });
 
         m_sflowMgr->addExistingData(&state_port_table);

@@ -10,8 +10,8 @@
 
 namespace swss {
 
-#define SFLOW_ERROR_SPEED_STR "error"
-#define SFLOW_NA_SPEED_STR "N/A"
+#define ERROR_SPEED "error"
+#define NA_SPEED "N/A"
 
 struct SflowPortInfo
 {
