@@ -51,219 +51,190 @@ namespace sflowmgr_ut
             m_sflowMgr->addExistingData(&cfg_sflow);
             m_sflowMgr->doTask();
         }
+
+        void cfgSflowSession(string alias, bool status, string sample_rate)
+        {
+            Table cfg_sflow_table(m_config_db.get(), CFG_SFLOW_SESSION_TABLE_NAME);
+            vector<FieldValueTuple> values;
+            values.emplace_back("admin_state", status ? "up" : "down");
+            if (!sample_rate.empty())
+            {
+                values.emplace_back("sample_rate", sample_rate);
+            }
+            cfg_sflow_table.set(alias, values);
+            m_sflowMgr->addExistingData(&cfg_sflow_table);
+            m_sflowMgr->doTask();
+        }
+
+        void cfgSflowSessionAll(bool status)
+        {
+            Table cfg_sflow_table(m_config_db.get(), CFG_SFLOW_SESSION_TABLE_NAME);
+            cfg_sflow_table.set("all", {
+                {"admin_state", status ? "up" : "down"},
+            });
+            m_sflowMgr->addExistingData(&cfg_sflow_table);
+            m_sflowMgr->doTask();
+        }
+
+        void cfgPortSpeed(string alias, string speed)
+        {
+            Table cfg_port_table(m_config_db.get(), CFG_PORT_TABLE_NAME);
+            cfg_port_table.set(alias, {
+                {"speed", speed}
+            });
+            m_sflowMgr->addExistingData(&cfg_port_table);
+            m_sflowMgr->doTask();
+        }
+
+        void statePortSpeed(string alias, string speed)
+        {
+            Table state_port_table(m_config_db.get(), STATE_PORT_TABLE_NAME);
+            state_port_table.set(alias, {
+                {"speed", speed}
+            });
+            m_sflowMgr->addExistingData(&state_port_table);
+            m_sflowMgr->doTask();
+        }
+
+        string getSflowSampleRate(string alias)
+        {
+            Table appl_sflow_table(m_app_db.get(), APP_SFLOW_SESSION_TABLE_NAME);
+            std::vector<FieldValueTuple> values;
+            appl_sflow_table.get("Ethernet0", values);
+            auto value_rate = swss::fvsGetValue(values, "sample_rate", true);
+            if (value_rate)
+            {
+                string ret = value_rate.get();
+                return ret;
+            }
+            return "";
+        }
+
+        string getSflowAdminStatus(string alias)
+        {
+            Table appl_sflow_table(m_app_db.get(), APP_SFLOW_SESSION_TABLE_NAME);
+            std::vector<FieldValueTuple> values;
+            appl_sflow_table.get("Ethernet0", values);
+            auto value_rate = swss::fvsGetValue(values, "admin_state", true);
+            if (value_rate)
+            {
+                string ret = value_rate.get();
+                return ret;
+            }
+            return "down";
+        }
     };
 
     TEST_F(SflowMgrTest, test_RateConfiguration)
     {
-        Table state_port_table(m_state_db.get(), STATE_PORT_TABLE_NAME);
-        Table appl_sflow_table(m_app_db.get(), APP_SFLOW_SESSION_TABLE_NAME);
-        Table cfg_port_table(m_config_db.get(), CFG_PORT_TABLE_NAME);
-
-        cfg_port_table.set("Ethernet0", {
-            {"speed", "100000"},
-        });
-
-        m_sflowMgr->addExistingData(&cfg_port_table);
-        m_sflowMgr->doTask();
-    
-        std::vector<FieldValueTuple> values;
-        appl_sflow_table.get("Ethernet0", values);
-        auto value_rate = swss::fvsGetValue(values, "sample_rate", true);
-        ASSERT_TRUE(value_rate);
-        ASSERT_TRUE(value_rate.get() == "100000");
+        cfgPortSpeed("Ethernet0", "100000");
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "100000");
 
         /* Scenario: Operational Speed Changes to 25000 */
-        state_port_table.set("Ethernet0", {
-            {"speed", "25000"}
-        });
-
-        m_sflowMgr->addExistingData(&state_port_table);
-        m_sflowMgr->doTask();
-
-        values.clear();
-        appl_sflow_table.get("Ethernet0", values);
-        value_rate = swss::fvsGetValue(values, "sample_rate", true);
-        ASSERT_TRUE(value_rate);
-        ASSERT_TRUE(value_rate.get() == "25000");
+        statePortSpeed("Ethernet0", "25000");
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "25000");
     }
 
-    TEST_F(SflowMgrTest, test_RateConfigurationOperUpDown)
+    TEST_F(SflowMgrTest, test_RateConfigurationCfgSpeed)
     {
-        /* Simulates a realistic scenario of oper up down events mixed with auto neg */
-        Table state_port_table(m_state_db.get(), STATE_PORT_TABLE_NAME);
-        Table appl_sflow_table(m_app_db.get(), APP_SFLOW_SESSION_TABLE_NAME);
-        Table cfg_port_table(m_config_db.get(), CFG_PORT_TABLE_NAME);
-        std::vector<FieldValueTuple> values;
-
         /* Configure the Speed to 100G */
-        cfg_port_table.set("Ethernet0", {
-            {"speed", "100000"},
-        });
+        cfgPortSpeed("Ethernet0", "100000");
 
         /* Scenario: Operational Speed Changes to 100G with autoneg */
-        state_port_table.set("Ethernet0", {
-            {"speed", "100000"}
-        });
-
-        m_sflowMgr->addExistingData(&cfg_port_table);
-        m_sflowMgr->addExistingData(&state_port_table);
-        m_sflowMgr->doTask();
+        statePortSpeed("Ethernet0", "100000");
 
         /* User changes the config speed to 10G */
-        cfg_port_table.set("Ethernet0", {
-            {"speed", "10000"},
-        });
+        cfgPortSpeed("Ethernet0", "10000");
 
-        m_sflowMgr->addExistingData(&cfg_port_table);
-        m_sflowMgr->doTask();
-
-        values.clear();
-        appl_sflow_table.get("Ethernet0", values);
-        auto value_rate = swss::fvsGetValue(values, "sample_rate", true);
-        ASSERT_TRUE(value_rate);
-        /* Rate Should still adhere to oper_speed */
-        ASSERT_TRUE(value_rate.get() == "100000");
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "100000");
 
         /* Scenario: Operational Speed Changes to 10G, with autoneg */
-        state_port_table.set("Ethernet0", {
-            {"speed", "10000"}
-        });
-
-        m_sflowMgr->addExistingData(&state_port_table);
-        m_sflowMgr->doTask();
-
-        values.clear();
-        appl_sflow_table.get("Ethernet0", values);
-        value_rate = swss::fvsGetValue(values, "sample_rate", true);
-        ASSERT_TRUE(value_rate);
-        /* Rate is supposed to be updated */
-        ASSERT_TRUE(value_rate.get() == "10000");
+        statePortSpeed("Ethernet0", "10000");
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "10000");
 
         /* Configured speed is updated by user */
-        cfg_port_table.set("Ethernet0", {
-            {"speed", "200000"},
-        });
+        cfgPortSpeed("Ethernet0", "200000");
 
-        m_sflowMgr->addExistingData(&state_port_table);
-        m_sflowMgr->addExistingData(&cfg_port_table);
-        m_sflowMgr->doTask();
-
-        values.clear();
-        appl_sflow_table.get("Ethernet0", values);
-        value_rate = swss::fvsGetValue(values, "sample_rate", true);
-        ASSERT_TRUE(value_rate);
         /* Sampling Rate will not be updated */
-        ASSERT_TRUE(value_rate.get() == "10000");
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "10000");
     }
 
     TEST_F(SflowMgrTest, test_OnlyStateDbNotif)
     {
-        Table state_port_table(m_state_db.get(), STATE_PORT_TABLE_NAME);
-        Table appl_sflow_table(m_app_db.get(), APP_SFLOW_SESSION_TABLE_NAME);
-        Table cfg_port_table(m_config_db.get(), CFG_PORT_TABLE_NAME);
-
-        state_port_table.set("Ethernet0", {
-            {"speed", "100000"}
-        });
-
-        m_sflowMgr->addExistingData(&cfg_port_table);
-        m_sflowMgr->doTask();
-    
-        std::vector<FieldValueTuple> values;
-        appl_sflow_table.get("Ethernet0", values);
-        auto value_rate = swss::fvsGetValue(values, "sample_rate", true);
-        ASSERT_FALSE(value_rate);
+        statePortSpeed("Ethernet0", "100000");
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "");
     }
 
     TEST_F(SflowMgrTest, test_LocalRateConfiguration)
     {
-        Table appl_sflow_table(m_app_db.get(), APP_SFLOW_SESSION_TABLE_NAME);
-        Table cfg_port_table(m_config_db.get(), CFG_PORT_TABLE_NAME);
-        Table cfg_sflow_table(m_config_db.get(), CFG_SFLOW_SESSION_TABLE_NAME);
-
-        cfg_port_table.set("Ethernet0", {
-            {"speed", "100000"}
-        });
-
-        cfg_sflow_table.set("Ethernet0", {
-            {"sample_rate", "12345"}
-        });
-
-        m_sflowMgr->addExistingData(&cfg_port_table);
-        m_sflowMgr->addExistingData(&cfg_sflow_table);
-        m_sflowMgr->doTask();
-
-        std::vector<FieldValueTuple> values;
-        appl_sflow_table.get("Ethernet0", values);
-        auto value_rate = swss::fvsGetValue(values, "sample_rate", true);
-        ASSERT_TRUE(value_rate);
-        ASSERT_TRUE(value_rate.get() == "12345");
+        cfgPortSpeed("Ethernet0", "100000");
+        cfgSflowSession("Ethernet0", true, "12345");
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "12345");
     }
 
     TEST_F(SflowMgrTest, test_LocalRateConfWithOperSpeed)
     {
-        Table state_port_table(m_state_db.get(), STATE_PORT_TABLE_NAME);
-        Table appl_sflow_table(m_app_db.get(), APP_SFLOW_SESSION_TABLE_NAME);
-        Table cfg_port_table(m_config_db.get(), CFG_PORT_TABLE_NAME);
-        Table cfg_sflow_table(m_config_db.get(), CFG_SFLOW_SESSION_TABLE_NAME);
-
-        cfg_port_table.set("Ethernet0", {
-            {"speed", "100000"},
-        });
+        cfgPortSpeed("Ethernet0", "100000");
 
         /* Scenario: Operational Speed Changes to 25000 */
-        state_port_table.set("Ethernet0", {
-            {"speed", "25000"},
-            {"netdev_oper_status", "up"}
-        });
+        statePortSpeed("Ethernet0", "25000");
 
-        cfg_sflow_table.set("Ethernet0", {
-            {"sample_rate", "12345"}
-        });
-
-        m_sflowMgr->addExistingData(&cfg_port_table);
-        m_sflowMgr->addExistingData(&cfg_sflow_table);
-        m_sflowMgr->addExistingData(&state_port_table);
-        m_sflowMgr->doTask();
-
-        std::vector<FieldValueTuple> values;
-        appl_sflow_table.get("Ethernet0", values);
-        auto value_rate = swss::fvsGetValue(values, "sample_rate", true);
-        ASSERT_TRUE(value_rate);
-        ASSERT_TRUE(value_rate.get() == "12345");
+        /* Set per interface sampling rate*/
+        cfgSflowSession("Ethernet0", true, "12345");
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "12345");
 
         /* Operational Speed Changes again to 50000 */
-        state_port_table.set("Ethernet0", {
-            {"speed", "50000"}
-        });
-
-        m_sflowMgr->addExistingData(&state_port_table);
-        m_sflowMgr->doTask();
-
-        appl_sflow_table.get("Ethernet0", values);
-        value_rate = swss::fvsGetValue(values, "sample_rate", true);
-        /* Local config wouldn't change */
-        ASSERT_TRUE(value_rate);
-        ASSERT_TRUE(value_rate.get() == "12345");
+        statePortSpeed("Ethernet0", "50000");
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "12345");
     }
 
-    TEST_F(SflowMgrTest, test_new_speed)
+    TEST_F(SflowMgrTest, test_newSpeed)
     {
-        Table appl_sflow_table(m_app_db.get(), APP_SFLOW_SESSION_TABLE_NAME);
-        Table cfg_port_table(m_config_db.get(), CFG_PORT_TABLE_NAME);
-        Table cfg_sflow_table(m_config_db.get(), CFG_SFLOW_SESSION_TABLE_NAME);
+        cfgPortSpeed("Ethernet0", "800000");
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "800000");
+    }
 
-        cfg_port_table.set("Ethernet0", {
-            {"speed", "800000"}
-        });
+    TEST_F(SflowMgrTest, test_CfgSpeedAdminCfg)
+    {
+        cfgPortSpeed("Ethernet0", "100000");
+        cfgSflowSessionAll(false); /* Disable sflow on all interfaces*/
+        ASSERT_TRUE(getSflowAdminStatus("Ethernet0") == "down");
+        cfgSflowSession("Ethernet0", true, ""); /* Set local admin up with no rate */
+        ASSERT_TRUE(getSflowAdminStatus("Ethernet0") == "up");
 
-        m_sflowMgr->addExistingData(&cfg_port_table);
-        m_sflowMgr->doTask();
-    
-        std::vector<FieldValueTuple> values;
-        appl_sflow_table.get("Ethernet0", values);
-        auto value_rate = swss::fvsGetValue(values, "sample_rate", true);
-        ASSERT_TRUE(value_rate);
-        ASSERT_TRUE(value_rate.get() == "800000");
+        /* Sampling rate should adhere to config speed*/
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "100000");
+
+        cfgPortSpeed("Ethernet0", "25000"); /* Change cfg speed */
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "25000");
+    }
+
+    TEST_F(SflowMgrTest, test_OperSpeedAdminCfg)
+    {
+        cfgPortSpeed("Ethernet0", "100000");
+        cfgSflowSessionAll(false); /* Disable sflow on all interfaces*/
+        cfgSflowSession("Ethernet0", true, ""); /* Set local admin up with no rate */
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "100000");
+        ASSERT_TRUE(getSflowAdminStatus("Ethernet0") == "up");
+
+        statePortSpeed("Ethernet0", "50000");
+        /* Sampling rate should adhere to oper speed*/
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "50000");
+        ASSERT_TRUE(getSflowAdminStatus("Ethernet0") == "up");
+
+        /* Change cfg speed */
+        cfgPortSpeed("Ethernet0", "25000");
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "50000");
+
+        statePortSpeed("Ethernet0", "1000");
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "1000");
+
+        cfgSflowSession("Ethernet0", true, "12345"); /* Set local sampling rate */
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "12345");
+        ASSERT_TRUE(getSflowAdminStatus("Ethernet0") == "up");
+
+        /* Change oper speed now */
+        statePortSpeed("Ethernet0", "12345");
+        ASSERT_TRUE(getSflowSampleRate("Ethernet0") == "12345");
     }
 }

@@ -33,6 +33,19 @@ void SflowMgr::readPortConfig()
     }
 }
 
+bool SflowMgr::isPortEnabled(const std::string& alias)
+{
+    /* Checks if the sflow is enabled on the port */
+    auto it = m_sflowPortConfMap.find(alias);
+    if (it == m_sflowPortConfMap.end())
+    {
+        return false;
+    }
+    bool local_admin = it->second.local_admin_cfg;
+    bool status = it->second.admin == "up" ? true : false;
+    return m_gEnable && (m_intfAllConf || (local_admin && status));
+}
+
 void SflowMgr::sflowHandleService(bool enable)
 {
     stringstream cmd;
@@ -103,12 +116,16 @@ void SflowMgr::sflowUpdatePortInfo(Consumer &consumer)
             if (m_sflowPortConfMap[key].speed != new_speed)
             {
                 m_sflowPortConfMap[key].speed = new_speed;
-                rate_update = true;
+                /* if oper_speed is set, no need to write to APP_DB */
+                if (m_sflowPortConfMap[key].oper_speed == NA_SPEED)
+                {
+                    rate_update = true;
+                }
             }
 
-            if (m_gEnable && m_intfAllConf)
+            if (isPortEnabled(key))
             {
-                // If the Local rate Conf is already present, dont't override it even though the speed is changed
+                // If the Local rate conf is already present, dont't override it even though the speed is changed
                 if (new_port || (rate_update && !m_sflowPortConfMap[key].local_rate_cfg))
                 {
                     vector<FieldValueTuple> fvs;
@@ -176,7 +193,7 @@ void SflowMgr::sflowProcessOperSpeed(Consumer &consumer)
                 m_sflowPortConfMap[alias].oper_speed = oper_speed;
             }
 
-            if (rate_update && m_gEnable && m_intfAllConf && !m_sflowPortConfMap[alias].local_rate_cfg )
+            if (isPortEnabled(alias) && rate_update && !m_sflowPortConfMap[alias].local_rate_cfg)
             {
                 auto rate = findSamplingRate(alias);
                 FieldValueTuple fv("sample_rate", rate);

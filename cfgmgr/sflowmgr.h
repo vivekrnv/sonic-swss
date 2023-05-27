@@ -49,6 +49,7 @@ private:
     void sflowCheckAndFillValues(std::string alias, std::vector<FieldValueTuple> &values, std::vector<FieldValueTuple> &fvs);
     void sflowGetPortInfo(std::vector<FieldValueTuple> &fvs, SflowPortInfo &local_info);
     void sflowGetGlobalInfo(std::vector<FieldValueTuple> &fvs, const std::string& alias);
+    bool isPortEnabled(const std::string& alias);
     std::string findSamplingRate(const std::string& speed);
 };
 
