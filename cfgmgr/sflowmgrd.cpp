@@ -61,8 +61,8 @@ int main(int argc, char **argv)
         };
 
         SflowMgr sflowmgr(&appDb, sflow_tables);
-        /* During process startup, the ordering of cfg_db followed by state_db notifications cannot be guaranteed 
-           and so handle the cfg notifs manually */
+        /* During process startup, the ordering of config_db followed by state_db notifications cannot be guaranteed 
+           and so handle the cfg events manually first */
         sflowmgr.readPortConfig();
 
         vector<Orch *> orchList = {&sflowmgr};

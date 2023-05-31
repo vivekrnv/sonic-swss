@@ -338,7 +338,7 @@ void SflowMgr::sflowCheckAndFillValues(string alias, vector<FieldValueTuple> &va
 
 string SflowMgr::findSamplingRate(const string& alias)
 {
-    /* Default sampling rate is equal to the oper_speed in Gbps or error 
+    /* Default sampling rate is equal to the oper_speed, if present. 
         if oper_speed is not found, use the configured speed */
     if (m_sflowPortConfMap.find(alias) == m_sflowPortConfMap.end())
     {
