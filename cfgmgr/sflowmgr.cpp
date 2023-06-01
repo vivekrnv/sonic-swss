@@ -206,11 +206,10 @@ void SflowMgr::sflowProcessOperSpeed(Consumer &consumer)
 
             if (isPortEnabled(alias) && rate_update && !m_sflowPortConfMap[alias].local_rate_cfg)
             {
-                auto rate = findSamplingRate(alias);
-                FieldValueTuple fv("sample_rate", rate);
-                vector<FieldValueTuple> fvs = {fv};
+                vector<FieldValueTuple> fvs;
+                sflowGetGlobalInfo(fvs, alias, m_sflowPortConfMap[alias].dir);
                 m_appSflowSessionTable.set(alias, fvs);
-                SWSS_LOG_NOTICE("Default sampling rate for %s updated to %s", alias.c_str(), rate.c_str());
+                SWSS_LOG_NOTICE("Default sampling rate for %s updated to %s", alias.c_str(), findSamplingRate(alias).c_str());
             }
         }
         /* Do nothing for DEL as the SflowPortConfMap will already be cleared by the DEL from CONFIG_DB */ 
@@ -242,7 +241,7 @@ void SflowMgr::sflowHandleSessionAll(bool enable, string direction)
             }
             else
             {
-                sflowGetGlobalInfo(fvs, it.second.speed, direction);
+                sflowGetGlobalInfo(fvs, it.first, direction);
             }
             m_appSflowSessionTable.set(it.first, fvs);
         }
@@ -577,7 +576,7 @@ void SflowMgr::doTask(Consumer &consumer)
                     if (m_intfAllConf)
                     {
                         vector<FieldValueTuple> fvs;
-                        sflowGetGlobalInfo(fvs, m_sflowPortConfMap[key].speed, m_intfAllDir);
+                        sflowGetGlobalInfo(fvs, key, m_intfAllDir);
                         m_appSflowSessionTable.set(key,fvs);
                     }
                 }
