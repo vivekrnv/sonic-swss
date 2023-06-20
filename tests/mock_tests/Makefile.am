@@ -56,6 +56,7 @@ tests_SOURCES = aclorch_ut.cpp \
                 test_failure_handling.cpp \
                 $(top_srcdir)/lib/gearboxutils.cpp \
                 $(top_srcdir)/lib/subintf.cpp \
+                $(top_srcdir)/orchagent/recorder.cpp \
                 $(top_srcdir)/orchagent/orchdaemon.cpp \
                 $(top_srcdir)/orchagent/orch.cpp \
                 $(top_srcdir)/orchagent/notifications.cpp \

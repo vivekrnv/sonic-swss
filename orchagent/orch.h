@@ -21,6 +21,7 @@ extern "C" {
 #include "selectabletimer.h"
 #include "macaddress.h"
 #include "response_publisher.h"
+#include "recorder.h"
 
 const char delimiter           = ':';
 const char list_item_delimiter = ',';

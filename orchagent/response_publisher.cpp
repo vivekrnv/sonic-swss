@@ -7,11 +7,6 @@
 
 #include "timestamp.h"
 
-extern bool gResponsePublisherRecord;
-extern bool gResponsePublisherLogRotate;
-extern std::ofstream gResponsePublisherRecordOfs;
-extern std::string gResponsePublisherRecordFile;
-
 namespace
 {
 
@@ -37,25 +32,13 @@ std::string PrependedComponent(const ReturnCode &status)
 
 void PerformLogRotate()
 {
-    if (!gResponsePublisherLogRotate)
-    {
-        return;
-    }
-    gResponsePublisherLogRotate = false;
-
-    gResponsePublisherRecordOfs.close();
-    gResponsePublisherRecordOfs.open(gResponsePublisherRecordFile);
-    if (!gResponsePublisherRecordOfs.is_open())
-    {
-        SWSS_LOG_ERROR("Failed to reopen Response Publisher record file %s: %s", gResponsePublisherRecordFile.c_str(),
-                       strerror(errno));
-    }
+    Recorder::respub.logfileReopen();
 }
 
 void RecordDBWrite(const std::string &table, const std::string &key, const std::vector<swss::FieldValueTuple> &attrs,
                    const std::string &op)
 {
-    if (!gResponsePublisherRecord)
+    if (!Recorder::respub.isRecord())
     {
         return;
     }
@@ -67,13 +50,13 @@ void RecordDBWrite(const std::string &table, const std::string &key, const std::
     }
 
     PerformLogRotate();
-    gResponsePublisherRecordOfs << swss::getTimestamp() << "|" << s << std::endl;
+    Recorder::respub.record(s);
 }
 
 void RecordResponse(const std::string &response_channel, const std::string &key,
                     const std::vector<swss::FieldValueTuple> &attrs, const std::string &status)
 {
-    if (!gResponsePublisherRecord)
+    if (!Recorder::respub.isRecord())
     {
         return;
     }
@@ -85,7 +68,7 @@ void RecordResponse(const std::string &response_channel, const std::string &key,
     }
 
     PerformLogRotate();
-    gResponsePublisherRecordOfs << swss::getTimestamp() << "|" << s << std::endl;
+    Recorder::respub.record(s);
 }
 
 } // namespace

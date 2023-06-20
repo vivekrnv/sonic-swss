@@ -56,9 +56,7 @@ int gBatchSize = DEFAULT_BATCH_SIZE;
 
 bool gSairedisRecord = true;
 bool gSwssRecord = true;
-bool gResponsePublisherRecord = false;
 bool gLogRotate = false;
-bool gResponsePublisherLogRotate = false;
 bool gSyncMode = false;
 sai_redis_communication_mode_t gRedisCommunicationMode = SAI_REDIS_COMMUNICATION_MODE_REDIS_ASYNC;
 string gAsicInstance;
@@ -67,8 +65,6 @@ extern bool gIsNatSupported;
 
 ofstream gRecordOfs;
 string gRecordFile;
-ofstream gResponsePublisherRecordOfs;
-string gResponsePublisherRecordFile;
 
 #define SAIREDIS_RECORD_ENABLE 0x1
 #define SWSS_RECORD_ENABLE (0x1 << 1)
@@ -110,7 +106,7 @@ void sighup_handler(int signo)
      */
     gLogRotate = true;
     gSaiRedisLogRotate = true;
-    gResponsePublisherLogRotate = true;
+    Recorder::respub.setRotate(true);
 }
 
 void syncd_apply_view()
@@ -454,9 +450,10 @@ int main(int argc, char **argv)
     gSairedisRecord =
         (record_type & SAIREDIS_RECORD_ENABLE) == SAIREDIS_RECORD_ENABLE;
     gSwssRecord = (record_type & SWSS_RECORD_ENABLE) == SWSS_RECORD_ENABLE;
-    gResponsePublisherRecord =
+    Recorder::respub.enable(
         (record_type & RESPONSE_PUBLISHER_RECORD_ENABLE) ==
-        RESPONSE_PUBLISHER_RECORD_ENABLE;
+        RESPONSE_PUBLISHER_RECORD_ENABLE
+    );
 
     /* Disable/enable SwSS recording */
     if (gSwssRecord)
@@ -471,22 +468,11 @@ int main(int argc, char **argv)
         gRecordOfs << getTimestamp() << "|recording started" << endl;
     }
 
-    // Disable/Enable response publisher recording.
-    if (gResponsePublisherRecord) 
+    if (Recorder::respub.isRecord())
     {
-        gResponsePublisherRecordFile = record_location + "/" + responsepublisher_rec_filename;
-        gResponsePublisherRecordOfs.open(gResponsePublisherRecordFile, std::ofstream::out | std::ofstream::app);
-        if (!gResponsePublisherRecordOfs.is_open())
-        {
-            SWSS_LOG_ERROR("Failed to open Response Publisher recording file %s",
-                    gResponsePublisherRecordFile.c_str());
-            gResponsePublisherRecord = false;
-        } 
-        else 
-        {
-            gResponsePublisherRecordOfs << getTimestamp() << "|recording started"
-                << endl;
-        }
+        Recorder::respub.setLocation(record_location);
+        Recorder::respub.setLocation(responsepublisher_rec_filename);
+        Recorder::respub.startRec(false);
     }
 
     attr.id = SAI_SWITCH_ATTR_PORT_STATE_CHANGE_NOTIFY;
