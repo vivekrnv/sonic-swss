@@ -40,7 +40,6 @@ sai_object_id_t gUnderlayIfId;
 int gBatchSize = DEFAULT_BATCH_SIZE;
 #define DEFAULT_MAX_BULK_SIZE 1000
 size_t gMaxBulkSize = DEFAULT_MAX_BULK_SIZE;
-bool gSairedisRecord = true;
 bool gSwssRecord = true;
 bool gLogRotate = false;
 bool gSyncMode = false;

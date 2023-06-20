@@ -15,7 +15,6 @@ MacAddress gVxlanMacAddress;
 #define DEFAULT_BATCH_SIZE 128
 int gBatchSize = DEFAULT_BATCH_SIZE;
 
-bool gSairedisRecord = true;
 bool gSwssRecord = true;
 bool gLogRotate = false;
 ofstream gRecordOfs;

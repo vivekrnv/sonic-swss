@@ -20,7 +20,7 @@ extern "C" {
 
 #include <sys/time.h>
 #include "timestamp.h"
-
+s
 #include <sairedis.h>
 #include <logger.h>
 
@@ -54,7 +54,6 @@ extern size_t gMaxBulkSize;
 #define DEFAULT_BATCH_SIZE  128
 int gBatchSize = DEFAULT_BATCH_SIZE;
 
-bool gSairedisRecord = true;
 bool gSwssRecord = true;
 bool gLogRotate = false;
 bool gSyncMode = false;
@@ -105,7 +104,7 @@ void sighup_handler(int signo)
      * Don't do any logging since they are using mutexes.
      */
     gLogRotate = true;
-    gSaiRedisLogRotate = true;
+    Recorder::sairedis.setRotate(true);
     Recorder::respub.setRotate(true);
 }
 
@@ -433,6 +432,12 @@ int main(int argc, char **argv)
 
     SWSS_LOG_NOTICE("--- Starting Orchestration Agent ---");
 
+    Recorder::sairedis.enable(
+        (record_type & SAIREDIS_RECORD_ENABLE) == SAIREDIS_RECORD_ENABLE
+    );
+    Recorder::sairedis.setLocation(record_location);
+    Recorder::sairedis.setFileName(sairedis_rec_filename);
+
     initSaiApi();
     initSaiRedis(record_location, sairedis_rec_filename);
 
@@ -447,13 +452,14 @@ int main(int argc, char **argv)
     attrs.push_back(attr);
 
     // Initialize recording parameters.
-    gSairedisRecord =
-        (record_type & SAIREDIS_RECORD_ENABLE) == SAIREDIS_RECORD_ENABLE;
-    gSwssRecord = (record_type & SWSS_RECORD_ENABLE) == SWSS_RECORD_ENABLE;
+    Recorder::sairedis.enable(
+        (record_type & SAIREDIS_RECORD_ENABLE) == SAIREDIS_RECORD_ENABLE
+    );
     Recorder::respub.enable(
         (record_type & RESPONSE_PUBLISHER_RECORD_ENABLE) ==
         RESPONSE_PUBLISHER_RECORD_ENABLE
     );
+    gSwssRecord = (record_type & SWSS_RECORD_ENABLE) == SWSS_RECORD_ENABLE;
 
     /* Disable/enable SwSS recording */
     if (gSwssRecord)
@@ -471,7 +477,7 @@ int main(int argc, char **argv)
     if (Recorder::respub.isRecord())
     {
         Recorder::respub.setLocation(record_location);
-        Recorder::respub.setLocation(responsepublisher_rec_filename);
+        Recorder::respub.setFileName(responsepublisher_rec_filename);
         Recorder::respub.startRec(false);
     }
 
