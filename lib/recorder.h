@@ -16,18 +16,21 @@ public:
     void setRotate(bool rotate)  { log_rotate = rotate; }
     void setLocation(const std::string& loc) { location = loc; }
     void setFileName(const std::string& name) { filename = name; }
+    void setName(const std::string& name)  { m_name = name; }
 
     /* getters */
     bool isRecord()  { return enable_rec; }
     bool isRotate()  { return log_rotate; }
     std::string getLoc() { return location; }
     std::string getFile() { return filename; }
+    std::string getName() { return m_name; }
 
 private:
     bool enable_rec;
+    bool log_rotate;
     std::string location;
     std::string filename;
-    bool log_rotate;
+    std::string m_name;
 };
 
 class RecWriter : public RecBase {
@@ -36,6 +39,8 @@ public:
     virtual ~RecWriter();
     void startRec(bool exit_if_failure);
     void record(const std::string& val);
+
+protected:
     void logfileReopen();
 
 private:

@@ -22,6 +22,7 @@ SwSSRec::SwSSRec()
     setRotate(false);
     setLocation(Recorder::DEFAULT_DIR);
     setFileName(Recorder::SWSS_FNAME);
+    setName("SwSS");
 }
 
 
@@ -32,6 +33,7 @@ ResPubRec::ResPubRec()
     setRotate(false);
     setLocation(Recorder::DEFAULT_DIR);
     setFileName(Recorder::RESPPUB_FNAME);
+    setName("Response Publisher");
 }
 
 
@@ -42,6 +44,7 @@ SaiRedisRec::SaiRedisRec()
     setRotate(false);
     setLocation(Recorder::DEFAULT_DIR);
     setFileName(Recorder::SAIREDIS_FNAME);
+    setName("SaiRedis");
 }
 
 
@@ -52,16 +55,11 @@ void RecWriter::startRec(bool exit_if_failure)
         return ;
     }
 
-    if (record_ofs.is_open())
-    {
-        SWSS_LOG_ERROR("Record File %s is already open", fname.c_str());      
-    }
-
     fname = getLoc() + "/" + getFile();
     record_ofs.open(fname, std::ofstream::out | std::ofstream::app);
     if (!record_ofs.is_open())
     {
-        SWSS_LOG_ERROR("Failed to open recording file %s: %s", fname.c_str(), strerror(errno));
+        SWSS_LOG_ERROR("%s Recorder: Failed to open recording file %s: error %s", getName().c_str(), fname.c_str(), strerror(errno));
         if (exit_if_failure)
         {
             exit(EXIT_FAILURE);
@@ -72,6 +70,7 @@ void RecWriter::startRec(bool exit_if_failure)
         }
     }
     record_ofs << swss::getTimestamp() << Recorder::REC_START << std::endl;
+    SWSS_LOG_NOTICE("%s Recorder: Recording started at %s", getName().c_str(), fname.c_str());
 }
 
 
@@ -93,6 +92,7 @@ void RecWriter::record(const std::string& val)
     record_ofs << swss::getTimestamp() << "|" << val << std::endl;
     if (isRotate())
     {
+        /* If the log rotate is set by sighup handler, peform the following actions */
         setRotate(false);
         logfileReopen();
     }
@@ -101,11 +101,6 @@ void RecWriter::record(const std::string& val)
 
 void RecWriter::logfileReopen()
 {
-    if (!isRecord())
-    {
-        return ;
-    }
-
     /*
      * On log rotate we will use the same file name, we are assuming that
      * logrotate daemon move filename to filename.1 and we will create new
@@ -116,7 +111,8 @@ void RecWriter::logfileReopen()
 
     if (!record_ofs.is_open())
     {
-        SWSS_LOG_ERROR("Failed to open recording file %s: %s", fname.c_str(), strerror(errno));
+        SWSS_LOG_ERROR("%s Recorder: Failed to open file %s: %s", getName().c_str(), fname.c_str(), strerror(errno));
         return;
     }
+    SWSS_LOG_INFO("%s Recorder: LogRotate request handled", getName().c_str());
 }

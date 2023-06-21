@@ -28,11 +28,6 @@ std::string PrependedComponent(const ReturnCode &status)
     return kOrchagentComponent;
 }
 
-void PerformLogRotate()
-{
-    swss::Recorder::respub->logfileReopen();
-}
-
 void RecordDBWrite(const std::string &table, const std::string &key, const std::vector<swss::FieldValueTuple> &attrs,
                    const std::string &op)
 {
@@ -47,7 +42,6 @@ void RecordDBWrite(const std::string &table, const std::string &key, const std::
         s += "|" + fvField(attr) + ":" + fvValue(attr);
     }
 
-    PerformLogRotate();
     swss::Recorder::respub->record(s);
 }
 
@@ -65,7 +59,6 @@ void RecordResponse(const std::string &response_channel, const std::string &key,
         s += "|" + fvField(attr) + ":" + fvValue(attr);
     }
 
-    PerformLogRotate();
     swss::Recorder::respub->record(s);
 }
 

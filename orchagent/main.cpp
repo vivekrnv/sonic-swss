@@ -442,6 +442,7 @@ int main(int argc, char **argv)
     );
     Recorder::swss->setLocation(record_location);
     Recorder::swss->setFileName(swss_rec_filename);
+    Recorder::swss->startRec(true);
 
     Recorder::respub->setRecord(
         (record_type & RESPONSE_PUBLISHER_RECORD_ENABLE) ==
@@ -449,6 +450,7 @@ int main(int argc, char **argv)
     );
     Recorder::respub->setLocation(record_location);
     Recorder::respub->setFileName(responsepublisher_rec_filename);
+    Recorder::respub->startRec(false);
 
     sai_attribute_t attr;
     vector<sai_attribute_t> attrs;
@@ -459,17 +461,6 @@ int main(int argc, char **argv)
     attr.id = SAI_SWITCH_ATTR_FDB_EVENT_NOTIFY;
     attr.value.ptr = (void *)on_fdb_event;
     attrs.push_back(attr);
-
-    /* Disable/enable SwSS recording */
-    if (Recorder::swss->isRecord())
-    {
-        Recorder::swss->startRec(true);
-    }
-
-    if (Recorder::respub->isRecord())
-    {
-        Recorder::respub->startRec(false);
-    }
 
     attr.id = SAI_SWITCH_ATTR_PORT_STATE_CHANGE_NOTIFY;
     attr.value.ptr = (void *)on_port_state_change;

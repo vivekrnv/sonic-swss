@@ -62,10 +62,7 @@ void ConsumerBase::addToSync(const KeyOpFieldsValuesTuple &entry)
     string op  = kfvOp(entry);
 
     /* Record incoming tasks */
-    if (Recorder::swss->isRecord())
-    {
-        recordTuple(entry);
-    }
+    Recorder::swss->record(dumpTuple(entry));
 
     /*
     * m_toSync is a multimap which will allow one key with multiple values,
@@ -199,11 +196,6 @@ size_t Consumer::refillToSync()
         auto table = Table(db, tableName);
         return refillToSync(&table);
     }
-}
-
-void ConsumerBase::recordTuple(const KeyOpFieldsValuesTuple &tuple)
-{
-    Recorder::swss->record(this->dumpTuple(tuple));
 }
 
 string ConsumerBase::dumpTuple(const KeyOpFieldsValuesTuple &tuple)
