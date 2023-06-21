@@ -19,8 +19,6 @@ extern "C" {
 #include <string.h>
 
 #include <sys/time.h>
-#include "timestamp.h"
-s
 #include <sairedis.h>
 #include <logger.h>
 
@@ -54,16 +52,11 @@ extern size_t gMaxBulkSize;
 #define DEFAULT_BATCH_SIZE  128
 int gBatchSize = DEFAULT_BATCH_SIZE;
 
-bool gSwssRecord = true;
-bool gLogRotate = false;
 bool gSyncMode = false;
 sai_redis_communication_mode_t gRedisCommunicationMode = SAI_REDIS_COMMUNICATION_MODE_REDIS_ASYNC;
 string gAsicInstance;
 
 extern bool gIsNatSupported;
-
-ofstream gRecordOfs;
-string gRecordFile;
 
 #define SAIREDIS_RECORD_ENABLE 0x1
 #define SWSS_RECORD_ENABLE (0x1 << 1)
@@ -103,9 +96,9 @@ void sighup_handler(int signo)
     /*
      * Don't do any logging since they are using mutexes.
      */
-    gLogRotate = true;
-    Recorder::sairedis.setRotate(true);
-    Recorder::respub.setRotate(true);
+    Recorder::swss->setRotate(true);
+    Recorder::sairedis->setRotate(true);
+    Recorder::respub->setRotate(true);
 }
 
 void syncd_apply_view()
@@ -341,10 +334,10 @@ int main(int argc, char **argv)
     int opt;
     sai_status_t status;
 
-    string record_location = ".";
-    string swss_rec_filename = "swss.rec";
-    string sairedis_rec_filename = "sairedis.rec";
-    string responsepublisher_rec_filename = "responsepublisher.rec";
+    string record_location = Recorder::DEFAULT_DIR;
+    string swss_rec_filename = Recorder::SWSS_FNAME;
+    string sairedis_rec_filename = Recorder::SAIREDIS_FNAME;
+    string responsepublisher_rec_filename = Recorder::RESPPUB_FNAME;
     int record_type = 3; // Only swss and sairedis recordings enabled by default.
 
     while ((opt = getopt(argc, argv, "b:m:r:f:j:d:i:hsz:k:")) != -1)
@@ -432,14 +425,30 @@ int main(int argc, char **argv)
 
     SWSS_LOG_NOTICE("--- Starting Orchestration Agent ---");
 
-    Recorder::sairedis.enable(
+    /* Initialize sairedis recording parameters */
+    Recorder::sairedis->setRecord(
         (record_type & SAIREDIS_RECORD_ENABLE) == SAIREDIS_RECORD_ENABLE
     );
-    Recorder::sairedis.setLocation(record_location);
-    Recorder::sairedis.setFileName(sairedis_rec_filename);
+    Recorder::sairedis->setLocation(record_location);
+    Recorder::sairedis->setFileName(sairedis_rec_filename);
 
+    /* Initialize sairedis */
     initSaiApi();
-    initSaiRedis(record_location, sairedis_rec_filename);
+    initSaiRedis();
+
+    /* Initialize remaining recorder parameters  */
+    Recorder::swss->setRecord(
+        (record_type & SWSS_RECORD_ENABLE) == SWSS_RECORD_ENABLE
+    );
+    Recorder::swss->setLocation(record_location);
+    Recorder::swss->setFileName(swss_rec_filename);
+
+    Recorder::respub->setRecord(
+        (record_type & RESPONSE_PUBLISHER_RECORD_ENABLE) ==
+        RESPONSE_PUBLISHER_RECORD_ENABLE
+    );
+    Recorder::respub->setLocation(record_location);
+    Recorder::respub->setFileName(responsepublisher_rec_filename);
 
     sai_attribute_t attr;
     vector<sai_attribute_t> attrs;
@@ -451,34 +460,15 @@ int main(int argc, char **argv)
     attr.value.ptr = (void *)on_fdb_event;
     attrs.push_back(attr);
 
-    // Initialize recording parameters.
-    Recorder::sairedis.enable(
-        (record_type & SAIREDIS_RECORD_ENABLE) == SAIREDIS_RECORD_ENABLE
-    );
-    Recorder::respub.enable(
-        (record_type & RESPONSE_PUBLISHER_RECORD_ENABLE) ==
-        RESPONSE_PUBLISHER_RECORD_ENABLE
-    );
-    gSwssRecord = (record_type & SWSS_RECORD_ENABLE) == SWSS_RECORD_ENABLE;
-
     /* Disable/enable SwSS recording */
-    if (gSwssRecord)
+    if (Recorder::swss->isRecord())
     {
-        gRecordFile = record_location + "/" + swss_rec_filename;
-        gRecordOfs.open(gRecordFile, std::ofstream::out | std::ofstream::app);
-        if (!gRecordOfs.is_open())
-        {
-            SWSS_LOG_ERROR("Failed to open SwSS recording file %s", gRecordFile.c_str());
-            exit(EXIT_FAILURE);
-        }
-        gRecordOfs << getTimestamp() << "|recording started" << endl;
+        Recorder::swss->startRec(true);
     }
 
-    if (Recorder::respub.isRecord())
+    if (Recorder::respub->isRecord())
     {
-        Recorder::respub.setLocation(record_location);
-        Recorder::respub.setFileName(responsepublisher_rec_filename);
-        Recorder::respub.startRec(false);
+        Recorder::respub->startRec(false);
     }
 
     attr.id = SAI_SWITCH_ATTR_PORT_STATE_CHANGE_NOTIFY;

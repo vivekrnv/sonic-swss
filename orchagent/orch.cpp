@@ -15,11 +15,6 @@ using namespace swss;
 
 extern int gBatchSize;
 
-extern bool gSwssRecord;
-extern ofstream gRecordOfs;
-extern bool gLogRotate;
-extern string gRecordFile;
-
 Orch::Orch(DBConnector *db, const string tableName, int pri)
 {
     addConsumer(db, tableName, pri);
@@ -49,14 +44,6 @@ Orch::Orch(const vector<TableConnector>& tables)
     }
 }
 
-Orch::~Orch()
-{
-    if (gRecordOfs.is_open())
-    {
-        gRecordOfs.close();
-    }
-}
-
 vector<Selectable *> Orch::getSelectables()
 {
     vector<Selectable *> selectables;
@@ -71,14 +58,13 @@ void ConsumerBase::addToSync(const KeyOpFieldsValuesTuple &entry)
 {
     SWSS_LOG_ENTER();
 
-
     string key = kfvKey(entry);
     string op  = kfvOp(entry);
 
     /* Record incoming tasks */
-    if (gSwssRecord)
+    if (Recorder::swss->isRecord())
     {
-        Orch::recordTuple(*this, entry);
+        recordTuple(entry);
     }
 
     /*
@@ -213,6 +199,11 @@ size_t Consumer::refillToSync()
         auto table = Table(db, tableName);
         return refillToSync(&table);
     }
+}
+
+void ConsumerBase::recordTuple(const KeyOpFieldsValuesTuple &tuple)
+{
+    Recorder::swss->record(this->dumpTuple(tuple));
 }
 
 string ConsumerBase::dumpTuple(const KeyOpFieldsValuesTuple &tuple)
@@ -561,45 +552,6 @@ void Orch::dumpPendingTasks(vector<string> &ts)
 void Orch::flushResponses()
 {
     m_publisher.flush();
-}
-
-void Orch::logfileReopen()
-{
-    gRecordOfs.close();
-
-    /*
-     * On log rotate we will use the same file name, we are assuming that
-     * logrotate daemon move filename to filename.1 and we will create new
-     * empty file here.
-     */
-
-    gRecordOfs.open(gRecordFile, std::ofstream::out | std::ofstream::app);
-
-    if (!gRecordOfs.is_open())
-    {
-        SWSS_LOG_ERROR("failed to open gRecordOfs file %s: %s", gRecordFile.c_str(), strerror(errno));
-        return;
-    }
-}
-
-void Orch::recordTuple(ConsumerBase &consumer, const KeyOpFieldsValuesTuple &tuple)
-{
-    string s = consumer.dumpTuple(tuple);
-
-    gRecordOfs << getTimestamp() << "|" << s << endl;
-
-    if (gLogRotate)
-    {
-        gLogRotate = false;
-
-        logfileReopen();
-    }
-}
-
-string Orch::dumpTuple(Consumer &consumer, const KeyOpFieldsValuesTuple &tuple)
-{
-    string s = consumer.dumpTuple(tuple);
-    return s;
 }
 
 ref_resolve_status Orch::resolveFieldRefArray(

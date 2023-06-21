@@ -32,13 +32,13 @@ std::string PrependedComponent(const ReturnCode &status)
 
 void PerformLogRotate()
 {
-    Recorder::respub.logfileReopen();
+    swss::Recorder::respub->logfileReopen();
 }
 
 void RecordDBWrite(const std::string &table, const std::string &key, const std::vector<swss::FieldValueTuple> &attrs,
                    const std::string &op)
 {
-    if (!Recorder::respub.isRecord())
+    if (!swss::Recorder::respub->isRecord())
     {
         return;
     }
@@ -50,13 +50,13 @@ void RecordDBWrite(const std::string &table, const std::string &key, const std::
     }
 
     PerformLogRotate();
-    Recorder::respub.record(s);
+    swss::Recorder::respub->record(s);
 }
 
 void RecordResponse(const std::string &response_channel, const std::string &key,
                     const std::vector<swss::FieldValueTuple> &attrs, const std::string &status)
 {
-    if (!Recorder::respub.isRecord())
+    if (!swss::Recorder::respub->isRecord())
     {
         return;
     }
@@ -68,7 +68,7 @@ void RecordResponse(const std::string &response_channel, const std::string &key,
     }
 
     PerformLogRotate();
-    Recorder::respub.record(s);
+    swss::Recorder::respub->record(s);
 }
 
 } // namespace

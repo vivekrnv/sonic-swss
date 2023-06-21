@@ -4,22 +4,9 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
-#include <errno.h>
+#include <memory>
 
 namespace swss {
-
-class Recorder {
-public:
-    static const std::string DEFAULT_DIR;
-    static const std::string REC_START;
-    static const std::string SWSS_FNAME;
-    static const std::string SAIREDIS_FNAME;
-    static const std::string RESPPUB_FNAME;
-    
-    static SwSSRec swss;
-    static SaiRedisRec sairedis;
-    static ResPubRec respub;
-};
 
 class RecBase {
 public:
@@ -70,6 +57,20 @@ public:
 class SaiRedisRec : public RecBase {
 public:
     SaiRedisRec();
+};
+
+/* Interface to access recorder classes */
+class Recorder {
+public:
+    static const std::string DEFAULT_DIR;
+    static const std::string REC_START;
+    static const std::string SWSS_FNAME;
+    static const std::string SAIREDIS_FNAME;
+    static const std::string RESPPUB_FNAME;
+    
+    static std::unique_ptr<SwSSRec> swss;
+    static std::unique_ptr<SaiRedisRec> sairedis;
+    static std::unique_ptr<ResPubRec> respub;
 };
 
 }

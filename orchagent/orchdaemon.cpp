@@ -24,7 +24,6 @@ using namespace swss;
 
 extern sai_switch_api_t*           sai_switch_api;
 extern sai_object_id_t             gSwitchId;
-extern bool                        gSaiRedisLogRotate;
 
 extern void syncd_apply_view();
 /*
@@ -62,7 +61,6 @@ DebugCounterOrch *gDebugCounterOrch;
 MonitorOrch *gMonitorOrch;
 
 bool gIsNatSupported = false;
-bool gSaiRedisLogRotate = false;
 event_handle_t g_events_handle;
 
 #define DEFAULT_MAX_BULK_SIZE 1000
@@ -710,7 +708,8 @@ void OrchDaemon::logRotate() {
 void OrchDaemon::start()
 {
     SWSS_LOG_ENTER();
-    gSaiRedisLogRotate = false;
+
+    Recorder::sairedis->setRotate(false);
 
     for (Orch *o : m_orchList)
     {
@@ -756,12 +755,10 @@ void OrchDaemon::start()
         }
 
         // check if logroate is requested
-        if (gSaiRedisLogRotate)
+        if (Recorder::sairedis->isRotate())
         {
             SWSS_LOG_NOTICE("performing log rotate");
-
-            gSaiRedisLogRotate = false;
-
+            Recorder::sairedis->setRotate(false);
             logRotate();
         }
 

@@ -40,8 +40,6 @@ sai_object_id_t gUnderlayIfId;
 int gBatchSize = DEFAULT_BATCH_SIZE;
 #define DEFAULT_MAX_BULK_SIZE 1000
 size_t gMaxBulkSize = DEFAULT_MAX_BULK_SIZE;
-bool gSwssRecord = true;
-bool gLogRotate = false;
 bool gSyncMode = false;
 bool gIsNatSupported = false;
 
@@ -52,8 +50,6 @@ VRFOrch *gVrfOrch;
 FlowCounterRouteOrch *gFlowCounterRouteOrch;
 SwitchOrch *gSwitchOrch;
 Directory<Orch *> gDirectory;
-ofstream gRecordOfs;
-string gRecordFile;
 swss::DBConnector *gAppDb;
 swss::DBConnector *gStateDb;
 swss::DBConnector *gConfigDb;

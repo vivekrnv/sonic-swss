@@ -13,11 +13,6 @@ using namespace swss;
 #define SELECT_TIMEOUT 1000
 
 int gBatchSize = 0;
-bool gSwssRecord = false;
-bool gLogRotate = false;
-ofstream gRecordOfs;
-string gRecordFile;
-
 bool received_sigterm = false;
 static struct sigaction old_sigaction;
 

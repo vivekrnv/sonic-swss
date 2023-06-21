@@ -1,6 +1,7 @@
 #include "recorder.h"
+#include "timestamp.h"
 #include "logger.h"
-#include <errno.h>
+#include <cstring>
 
 using namespace swss;
 
@@ -10,6 +11,9 @@ const std::string Recorder::SWSS_FNAME = "swss.rec";
 const std::string Recorder::SAIREDIS_FNAME = "sairedis.rec";
 const std::string Recorder::RESPPUB_FNAME = "responsepublisher.rec";
 
+std::unique_ptr<SwSSRec> Recorder::swss = std::make_unique<SwSSRec>();
+std::unique_ptr<SaiRedisRec> Recorder::sairedis = std::make_unique<SaiRedisRec>();
+std::unique_ptr<ResPubRec> Recorder::respub = std::make_unique<ResPubRec>();
 
 SwSSRec::SwSSRec() 
 {
@@ -67,7 +71,7 @@ void RecWriter::startRec(bool exit_if_failure)
             setRecord(false);
         }
     }
-    record_ofs << getTimestamp() << Recorder::REC_START << std::endl;
+    record_ofs << swss::getTimestamp() << Recorder::REC_START << std::endl;
 }
 
 
@@ -82,7 +86,11 @@ RecWriter::~RecWriter()
 
 void RecWriter::record(const std::string& val)
 {
-    record_ofs << getTimestamp() << "|" << val << std::endl;
+    if (!isRecord())
+    {
+        return ;
+    }
+    record_ofs << swss::getTimestamp() << "|" << val << std::endl;
     if (isRotate())
     {
         setRotate(false);
@@ -98,14 +106,12 @@ void RecWriter::logfileReopen()
         return ;
     }
 
-    record_ofs.close();
-
     /*
      * On log rotate we will use the same file name, we are assuming that
      * logrotate daemon move filename to filename.1 and we will create new
      * empty file here.
      */
-
+    record_ofs.close();
     record_ofs.open(fname, std::ofstream::out | std::ofstream::app);
 
     if (!record_ofs.is_open())
