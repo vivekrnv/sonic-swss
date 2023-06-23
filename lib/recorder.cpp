@@ -92,7 +92,6 @@ void RecWriter::record(const std::string& val)
     record_ofs << swss::getTimestamp() << "|" << val << std::endl;
     if (isRotate())
     {
-        /* If the log rotate is set by sighup handler, peform the following actions */
         setRotate(false);
         logfileReopen();
     }
