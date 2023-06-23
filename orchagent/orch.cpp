@@ -13,7 +13,7 @@
 
 using namespace swss;
 
-extern int gBatchSize;
+int gBatchSize = 0;
 
 Orch::Orch(DBConnector *db, const string tableName, int pri)
 {

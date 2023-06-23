@@ -21,8 +21,6 @@ using json = nlohmann::json;
 /* SELECT() function timeout retry time, in millisecond */
 #define SELECT_TIMEOUT 1000
 
-int gBatchSize = 0;
-
 void usage()
 {
     cout << "Usage: buffermgrd <-l pg_lookup.ini|-a asic_table.json [-p peripheral_table.json] [-z zero_profiles.json]>" << endl;

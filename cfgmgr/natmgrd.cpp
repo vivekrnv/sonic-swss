@@ -39,7 +39,6 @@ using namespace swss;
 /* select() function timeout retry time, in millisecond */
 #define SELECT_TIMEOUT 1000
 
-int gBatchSize = 0;
 NatMgr    *natmgr = NULL;
 
 NotificationConsumer   *timeoutNotificationsConsumer = NULL;

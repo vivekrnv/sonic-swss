@@ -21,7 +21,6 @@ using namespace swss;
 /* select() function timeout retry time, in millisecond */
 #define SELECT_TIMEOUT 1000
 
-int gBatchSize = 0;
 MacAddress gMacAddress;
 
 int main(int argc, char **argv)

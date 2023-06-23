@@ -50,7 +50,7 @@ MacAddress gVxlanMacAddress;
 extern size_t gMaxBulkSize;
 
 #define DEFAULT_BATCH_SIZE  128
-int gBatchSize = DEFAULT_BATCH_SIZE;
+extern int gBatchSize;
 
 bool gSyncMode = false;
 sai_redis_communication_mode_t gRedisCommunicationMode = SAI_REDIS_COMMUNICATION_MODE_REDIS_ASYNC;
@@ -334,6 +334,7 @@ int main(int argc, char **argv)
     int opt;
     sai_status_t status;
 
+    gBatchSize = DEFAULT_BATCH_SIZE;
     string record_location = Recorder::DEFAULT_DIR;
     string swss_rec_filename = Recorder::SWSS_FNAME;
     string sairedis_rec_filename = Recorder::SAIREDIS_FNAME;
