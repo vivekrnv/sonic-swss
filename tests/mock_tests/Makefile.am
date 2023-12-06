@@ -53,6 +53,7 @@ tests_SOURCES = aclorch_ut.cpp \
                 orchdaemon_ut.cpp \
                 intfsorch_ut.cpp \
                 mux_rollback_ut.cpp \
+                warmrestarthelper_ut.cpp \
                 warmrestartassist_ut.cpp \
                 test_failure_handling.cpp \
                 $(top_srcdir)/lib/gearboxutils.cpp \
@@ -126,6 +127,7 @@ tests_SOURCES = aclorch_ut.cpp \
                 $(top_srcdir)/orchagent/dash/dashvnetorch.cpp \
                 $(top_srcdir)/cfgmgr/buffermgrdyn.cpp \
                 $(top_srcdir)/warmrestart/warmRestartAssist.cpp \
+                $(top_srcdir)/warmrestart/warmRestartHelper.cpp \
                 $(top_srcdir)/orchagent/dash/pbutils.cpp
 
 tests_SOURCES += $(FLEX_CTR_DIR)/flex_counter_manager.cpp $(FLEX_CTR_DIR)/flex_counter_stat_manager.cpp $(FLEX_CTR_DIR)/flow_counter_handler.cpp $(FLEX_CTR_DIR)/flowcounterrouteorch.cpp
