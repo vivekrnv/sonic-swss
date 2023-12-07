@@ -407,7 +407,7 @@ namespace copporch_test
         }
     }
 
-    TEST_F(CoppOrchTest, TrapGroupWithPolicer_throwExec)
+    TEST_F(CoppOrchTest, TrapGroupWithPolicer_nothrowExec)
     {
         const std::string trapGroupName = "queue4_group2";
 
@@ -435,19 +435,19 @@ namespace copporch_test
             );
             coppOrch.doCoppTableTask(tableKofvt);
 
-            // Update create-only Policer Attributes and expect an exception to be is thrown
+            // Update create-only Policer Attributes
             auto tableKofvt2 = std::deque<KeyOpFieldsValuesTuple>(
                 {
                     {
                         trapGroupName,
                         SET_COMMAND,
                         {
-                            { copp_policer_mode_field,       "tr_tcm"  },
+                            { copp_policer_mode_field,       "tr_tcm"   }
                         }
                     }
                 }
             );
-            EXPECT_ANY_THROW(coppOrch.doProcessCoppRule(tableKofvt2));
+            EXPECT_NO_THROW(coppOrch.doProcessCoppRule(tableKofvt2));
         }
     }
 
