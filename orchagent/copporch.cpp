@@ -1158,7 +1158,7 @@ bool CoppOrch::trapGroupUpdatePolicer (string trap_group_name,
             {
                 if (policer_object.meter != (sai_meter_type_t)policer_attr.value.s32)
                 {
-                    SWSS_LOG_THROW("Trying to modify policer attribute: (meter), trap group: (%s)", trap_group_name.c_str());
+                    SWSS_LOG_ERROR("Trying to modify policer attribute: (meter), trap group: (%s)", trap_group_name.c_str());
                 }
                 continue;
             }
@@ -1166,7 +1166,7 @@ bool CoppOrch::trapGroupUpdatePolicer (string trap_group_name,
             {
                 if (policer_object.mode != (sai_policer_mode_t)policer_attr.value.s32)
                 {
-                    SWSS_LOG_THROW("Trying to modify policer attribute: (mode), trap group: (%s)", trap_group_name.c_str());
+                    SWSS_LOG_ERROR("Trying to modify policer attribute: (mode), trap group: (%s)", trap_group_name.c_str());
                 }
                 continue;
             }
@@ -1174,7 +1174,7 @@ bool CoppOrch::trapGroupUpdatePolicer (string trap_group_name,
             {
                 if (policer_object.color != (sai_policer_color_source_t)policer_attr.value.s32)
                 {
-                    SWSS_LOG_THROW("Trying to modify policer attribute: (color), trap group: (%s)", trap_group_name.c_str());
+                    SWSS_LOG_ERROR("Trying to modify policer attribute: (color), trap group: (%s)", trap_group_name.c_str());
                 }
                 continue;
             }
