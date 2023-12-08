@@ -353,6 +353,7 @@ namespace copporch_test
                             { copp_queue_field,              "4"       },
                             { copp_policer_meter_type_field, "packets" },
                             { copp_policer_mode_field,       "sr_tcm"  },
+                            { copp_policer_color_field,      "aware"   },
                             { copp_policer_cir_field,        "600"     },
                             { copp_policer_cbs_field,        "600"     },
                             { copp_policer_action_red_field, "drop"    }
@@ -442,7 +443,9 @@ namespace copporch_test
                         trapGroupName,
                         SET_COMMAND,
                         {
-                            { copp_policer_mode_field,       "tr_tcm"   }
+                            { copp_policer_meter_type_field, "bytes"    },
+                            { copp_policer_mode_field,       "tr_tcm"   },
+                            { copp_policer_color_field,      "blind"    },
                         }
                     }
                 }
