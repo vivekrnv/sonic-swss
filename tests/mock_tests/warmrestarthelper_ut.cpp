@@ -47,6 +47,13 @@ namespace wrhelper_test
                             {"nexthop", "2.1.0.0"},
                             {"weight", "1"},
                         });
+        m_routeTable->set("1.2.0.0/24",
+                        {
+                            {"ifname", "eth2"},
+                            {"nexthop", "2.2.0.0"},
+                            {"weight", "1"},
+                            {"random_attrib", "random_val"},
+                        });
         wrHelper->runRestoration();
         ASSERT_EQ(wrHelper->getState(), WarmStart::RESTORED);
 
@@ -70,6 +77,16 @@ namespace wrhelper_test
                                         {"protocol", "kernel"}
                                     }
                                 });
+        wrHelper->insertRefreshMap({
+                                    "1.2.0.0/24",
+                                    "SET",
+                                    {
+                                        {"ifname", "eth2"},
+                                        {"nexthop", "2.2.0.0"},
+                                        {"weight", "1"},
+                                        {"protocol", "kernel"}
+                                    }
+                                });
         wrHelper->reconcile();
         ASSERT_EQ(wrHelper->getState(), WarmStart::RECONCILED);
 
@@ -82,5 +99,8 @@ namespace wrhelper_test
 
         m_routeTable->hget("1.1.0.0/24", "weight", val);
         ASSERT_EQ(val, "4");
+
+        m_routeTable->hget("1.2.0.0/24", "protocol", val);
+        ASSERT_EQ(val, "kernel");
     }
 }
