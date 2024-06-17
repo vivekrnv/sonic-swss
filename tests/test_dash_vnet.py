@@ -8,7 +8,9 @@ from dash_api.route_rule_pb2 import *
 from dash_api.vnet_mapping_pb2 import *
 from dash_api.route_type_pb2 import *
 from dash_api.types_pb2 import *
+from dvslib.dvs_flex_counter import TestFlexCountersBase
 
+from typing import Union
 import typing
 import time
 import binascii
@@ -17,6 +19,12 @@ import ipaddress
 import sys
 import socket
 
+eni_counter_group_meta = {
+    'key': 'ENI',
+    'group_name': 'ENI_STAT_COUNTER',
+    'name_map': 'COUNTERS_ENI_NAME_MAP',
+    'post_test': 'post_eni_counter_test'
+}
 
 DVS_ENV = ["HWSKU=DPU-2P"]
 NUM_PORTS = 2
@@ -35,7 +43,7 @@ class ProduceStateTable(object):
             database.db_connection,
             table_name)
 
-    def __setitem__(self, key: str, pairs: typing.Union[dict, list, tuple]):
+    def __setitem__(self, key: str, pairs: Union[dict, list, tuple]):
         pairs_str = []
         if isinstance(pairs, dict):
             pairs = pairs.items()
@@ -138,7 +146,7 @@ class Dash(object):
     def remove_inbound_routing(self, mac_string, vni, ip):
         del self.app_dash_route_rule_table[str(mac_string) + ":" + str(vni) + ":" + str(ip)]
 
-class TestDash(object):
+class TestDash(TestFlexCountersBase):
     def test_appliance(self, dvs):
         dashobj = Dash(dvs)
         self.appliance_id = "100"
@@ -181,6 +189,14 @@ class TestDash(object):
         assert vnet_attr["SAI_VNET_ATTR_VNI"] == "45654"
         return dashobj
 
+    def post_eni_counter_test(self, meta_data):
+        counters_keys = self.counters_db.db_connection.hgetall(meta_data['name_map'])
+        self.set_flex_counter_group_status(meta_data['key'], meta_data['name_map'], 'disable')
+
+        for counter_entry in counters_keys.items():
+            self.wait_for_id_list_remove(meta_data['group_name'], counter_entry[0], counter_entry[1])
+        self.wait_for_table_empty(meta_data['name_map'])
+
     def test_eni(self, dvs):
         dashobj = Dash(dvs)
         self.vnet = "Vnet1"
@@ -202,7 +218,7 @@ class TestDash(object):
         self.vnet_oid = vnets[0]
         enis = dashobj.asic_eni_table.get_keys()
         assert enis
-        self.eni_oid = enis[0];
+        self.eni_oid = enis[0]
         fvs = dashobj.asic_eni_table[enis[0]]
         for fv in fvs.items():
             if fv[0] == "SAI_ENI_ATTR_VNET_ID":
@@ -216,7 +232,10 @@ class TestDash(object):
             if fv[0] == "SAI_ENI_ATTR_ADMIN_STATE":
                 assert fv[1] == "true"
 
-        time.sleep(3)
+        time.sleep(1)
+        self.verify_flex_counter_flow(dvs, eni_counter_group_meta)
+
+        time.sleep(2)
         eni_addr_maps = dashobj.asic_eni_ether_addr_map_table.get_keys()
         assert eni_addr_maps
         fvs = dashobj.asic_eni_ether_addr_map_table[eni_addr_maps[0]]
