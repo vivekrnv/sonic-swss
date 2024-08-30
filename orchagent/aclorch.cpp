@@ -75,7 +75,8 @@ acl_rule_attr_lookup_t aclMatchLookup =
     { MATCH_INNER_L4_SRC_PORT, SAI_ACL_ENTRY_ATTR_FIELD_INNER_L4_SRC_PORT },
     { MATCH_INNER_L4_DST_PORT, SAI_ACL_ENTRY_ATTR_FIELD_INNER_L4_DST_PORT },
     { MATCH_BTH_OPCODE,        SAI_ACL_ENTRY_ATTR_FIELD_BTH_OPCODE},
-    { MATCH_AETH_SYNDROME,     SAI_ACL_ENTRY_ATTR_FIELD_AETH_SYNDROME}
+    { MATCH_AETH_SYNDROME,     SAI_ACL_ENTRY_ATTR_FIELD_AETH_SYNDROME},
+    { MATCH_TUNNEL_TERM,       SAI_ACL_ENTRY_ATTR_FIELD_TUNNEL_TERMINATED}
 };
 
 static acl_range_type_lookup_t aclRangeTypeLookup =
@@ -806,6 +807,13 @@ bool AclRule::validateAddMatch(string attr_name, string attr_value)
         if (aclMatchLookup.find(attr_name) == aclMatchLookup.end())
         {
             return false;
+        }
+        else if (attr_name == MATCH_TUNNEL_TERM)
+        {
+            if (attr_value != "true")
+            {
+                matchData.enable = false;
+            }
         }
         else if (attr_name == MATCH_IN_PORTS)
         {
