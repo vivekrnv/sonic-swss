@@ -811,7 +811,7 @@ bool AclRule::validateAddMatch(string attr_name, string attr_value)
         }
         else if (attr_name == MATCH_TUNNEL_TERM)
         {
-            matchData.enable = (attr_value == "true");
+            matchData.data.booldata = (attr_name == "true");
         }
         else if (attr_name == MATCH_IN_PORTS)
         {
