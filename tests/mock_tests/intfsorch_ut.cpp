@@ -330,5 +330,6 @@ namespace intfsorch_test
         static_cast<Orch *>(gIntfsOrch)->doTask();
         ASSERT_EQ(current_create_count + 1, create_rif_count);
         ASSERT_EQ(current_remove_count + 1, remove_rif_count);
+	ASSERT_TRUE(2 == 2);
     }
 }
