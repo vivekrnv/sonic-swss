@@ -8416,93 +8416,98 @@ void PortsOrch::doTask(NotificationConsumer &consumer)
 
     for (auto& entry : entries)
     {
-        auto op = kfvOp(entry);
-        auto data = kfvKey(entry);
-        auto values = kfvFieldsValues(entry);
+        handleNotification(consumer, entry);
+    }
+}
 
-        if (&consumer == m_portStatusNotificationConsumer && op == "port_state_change")
+void PortsOrch::handleNotification(NotificationConsumer &consumer, KeyOpFieldsValuesTuple& entry)
+{
+    auto op = kfvOp(entry);
+    auto data = kfvKey(entry);
+    auto values = kfvFieldsValues(entry);
+
+    if (&consumer == m_portStatusNotificationConsumer && op == "port_state_change")
+    {
+        uint32_t count;
+        sai_port_oper_status_notification_t *portoperstatus = nullptr;
+
+        sai_deserialize_port_oper_status_ntf(data, count, &portoperstatus);
+
+        for (uint32_t i = 0; i < count; i++)
         {
-            uint32_t count;
-            sai_port_oper_status_notification_t *portoperstatus = nullptr;
+            Port port;
+            sai_object_id_t id = portoperstatus[i].port_id;
+            sai_port_oper_status_t status = portoperstatus[i].port_state;
+            sai_port_error_status_t port_oper_err = portoperstatus[i].port_error_status;
 
-            sai_deserialize_port_oper_status_ntf(data, count, &portoperstatus);
+            SWSS_LOG_NOTICE("Get port state change notification id:%" PRIx64 " status:%d "
+                                "oper_error_status:0x%" PRIx32,
+                                id, status, port_oper_err);
 
-            for (uint32_t i = 0; i < count; i++)
+            if (!getPort(id, port))
             {
-                Port port;
-                sai_object_id_t id = portoperstatus[i].port_id;
-                sai_port_oper_status_t status = portoperstatus[i].port_state;
-                sai_port_error_status_t port_oper_err = portoperstatus[i].port_error_status;
-
-                SWSS_LOG_NOTICE("Get port state change notification id:%" PRIx64 " status:%d "
-                                    "oper_error_status:0x%" PRIx32,
-                                    id, status, port_oper_err);
-
-                if (!getPort(id, port))
-                {
-                    SWSS_LOG_NOTICE("Got port state change for port id 0x%" PRIx64 " which does not exist, possibly outdated event", id);
-                    continue;
-                }
-
-                updatePortOperStatus(port, status);
-                if (status == SAI_PORT_OPER_STATUS_UP)
-                {
-                    sai_uint32_t speed;
-                    if (getPortOperSpeed(port, speed))
-                    {
-                        SWSS_LOG_NOTICE("%s oper speed is %d", port.m_alias.c_str(), speed);
-                        updateDbPortOperSpeed(port, speed);
-                    }
-                    else
-                    {
-                        updateDbPortOperSpeed(port, 0);
-                    }
-                    sai_port_fec_mode_t fec_mode;
-                    string fec_str;
-                    if (oper_fec_sup && getPortOperFec(port, fec_mode))
-                    {
-                        if (!m_portHlpr.fecToStr(fec_str, fec_mode))
-                        {
-                            SWSS_LOG_ERROR("Error unknown fec mode %d while querying port %s fec mode",
-                                        static_cast<std::int32_t>(fec_mode), port.m_alias.c_str());
-                            fec_str = "N/A";
-                        }
-                        updateDbPortOperFec(port,fec_str);
-                    }
-                    else
-                    {
-                        updateDbPortOperFec(port, "N/A");
-                    }
-                } else {
-                    if (port_oper_err)
-                    {
-                        updatePortErrorStatus(port, port_oper_err);
-                    }
-                }
-
-                /* update m_portList */
-                m_portList[port.m_alias] = port;
-            }
-
-            sai_deserialize_free_port_oper_status_ntf(count, portoperstatus);
-        }
-        else if (&consumer == m_portHostTxReadyNotificationConsumer && op == "port_host_tx_ready")
-        {
-            sai_object_id_t port_id;
-            sai_object_id_t switch_id;
-            sai_port_host_tx_ready_status_t host_tx_ready_status;
-
-            sai_deserialize_port_host_tx_ready_ntf(data, switch_id, port_id, host_tx_ready_status);
-            SWSS_LOG_DEBUG("Recieved host_tx_ready notification for port 0x%" PRIx64, port_id);
-
-            Port p;
-            if (!getPort(port_id, p))
-            {
-                SWSS_LOG_ERROR("Failed to get port object for port id 0x%" PRIx64, port_id);
+                SWSS_LOG_NOTICE("Got port state change for port id 0x%" PRIx64 " which does not exist, possibly outdated event", id);
                 continue;
             }
-            setHostTxReady(p, host_tx_ready_status == SAI_PORT_HOST_TX_READY_STATUS_READY ? "true" : "false");
+
+            updatePortOperStatus(port, status);
+            if (status == SAI_PORT_OPER_STATUS_UP)
+            {
+                sai_uint32_t speed;
+                if (getPortOperSpeed(port, speed))
+                {
+                    SWSS_LOG_NOTICE("%s oper speed is %d", port.m_alias.c_str(), speed);
+                    updateDbPortOperSpeed(port, speed);
+                }
+                else
+                {
+                    updateDbPortOperSpeed(port, 0);
+                }
+                sai_port_fec_mode_t fec_mode;
+                string fec_str;
+                if (oper_fec_sup && getPortOperFec(port, fec_mode))
+                {
+                    if (!m_portHlpr.fecToStr(fec_str, fec_mode))
+                    {
+                        SWSS_LOG_ERROR("Error unknown fec mode %d while querying port %s fec mode",
+                                    static_cast<std::int32_t>(fec_mode), port.m_alias.c_str());
+                        fec_str = "N/A";
+                    }
+                    updateDbPortOperFec(port,fec_str);
+                }
+                else
+                {
+                    updateDbPortOperFec(port, "N/A");
+                }
+            } else {
+                if (port_oper_err)
+                {
+                    updatePortErrorStatus(port, port_oper_err);
+                }
+            }
+
+            /* update m_portList */
+            m_portList[port.m_alias] = port;
         }
+
+        sai_deserialize_free_port_oper_status_ntf(count, portoperstatus);
+    }
+    else if (&consumer == m_portHostTxReadyNotificationConsumer && op == "port_host_tx_ready")
+    {
+        sai_object_id_t port_id;
+        sai_object_id_t switch_id;
+        sai_port_host_tx_ready_status_t host_tx_ready_status;
+
+        sai_deserialize_port_host_tx_ready_ntf(data, switch_id, port_id, host_tx_ready_status);
+        SWSS_LOG_DEBUG("Recieved host_tx_ready notification for port 0x%" PRIx64, port_id);
+
+        Port p;
+        if (!getPort(port_id, p))
+        {
+            SWSS_LOG_ERROR("Failed to get port object for port id 0x%" PRIx64, port_id);
+            return;
+        }
+        setHostTxReady(p, host_tx_ready_status == SAI_PORT_HOST_TX_READY_STATUS_READY ? "true" : "false");
     }
 }
 
