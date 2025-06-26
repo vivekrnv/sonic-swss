@@ -9,14 +9,11 @@ void ZmqConsumer::execute()
 {
     SWSS_LOG_ENTER();
 
-    size_t update_size = 0;
     auto table = static_cast<swss::ZmqConsumerStateTable*>(getSelectable());
-    do
-    {
-        std::deque<KeyOpFieldsValuesTuple> entries;
-        table->pops(entries);
-        update_size = addToSync(entries);
-    } while (update_size != 0);
+
+    std::deque<KeyOpFieldsValuesTuple> entries;
+    table->pops(entries);
+    addToSync(entries);
 
     drain();
 }
@@ -53,7 +50,7 @@ void ZmqOrch::addConsumer(DBConnector *db, string tableName, int pri, ZmqServer 
         if (zmqServer != nullptr)
         {
             SWSS_LOG_DEBUG("ZmqConsumer initialize for: %s", tableName.c_str());
-            addExecutor(new ZmqConsumer(new ZmqConsumerStateTable(db, tableName, *zmqServer, gBatchSize, pri), this, tableName));
+            addExecutor(new ZmqConsumer(new ZmqConsumerStateTable(db, tableName, *zmqServer, 65536, pri), this, tableName));
         }
         else
         {
