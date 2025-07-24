@@ -202,16 +202,14 @@ bool DashOrch::addApplianceEntry(const string& appliance_id, const dash::applian
     }
     direction_lookup_attrs.push_back(appliance_attr);
 
-    appliance_attr.id = SAI_DIRECTION_LOOKUP_ENTRY_ATTR_DASH_ENI_MAC_OVERRIDE_TYPE;
-    if (entry.has_outbound_direction_lookup())
+    // Don't set up this entry for dst_mac
+    if ((entry.has_outbound_direction_lookup() && entry.outbound_direction_lookup() == "src_mac") || !entry.has_outbound_direction_lookup())
     {
-        appliance_attr.value.u32 = sMacOverride[entry.outbound_direction_lookup()];
-    }
-    else
-    {
+        appliance_attr.id = SAI_DIRECTION_LOOKUP_ENTRY_ATTR_DASH_ENI_MAC_OVERRIDE_TYPE;
         appliance_attr.value.u32 = SAI_DASH_ENI_MAC_OVERRIDE_TYPE_SRC_MAC;
+        direction_lookup_attrs.push_back(appliance_attr);
     }
-    direction_lookup_attrs.push_back(appliance_attr);
+    
 
     status = sai_dash_direction_lookup_api->create_direction_lookup_entry(&direction_lookup_entry,
                 (uint32_t)direction_lookup_attrs.size(), direction_lookup_attrs.data());
