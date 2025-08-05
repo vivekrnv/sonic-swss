@@ -28,6 +28,9 @@
 #define ENI_STAT_COUNTER_FLEX_COUNTER_GROUP "ENI_STAT_COUNTER"
 #define ENI_STAT_FLEX_COUNTER_POLLING_INTERVAL_MS 10000
 
+#define METER_STAT_COUNTER_FLEX_COUNTER_GROUP "METER_STAT_COUNTER"
+#define METER_STAT_FLEX_COUNTER_POLLING_INTERVAL_MS 10000
+
 #define DASH_RESULT_SUCCESS 0
 #define DASH_RESULT_FAILURE 1
 
@@ -57,10 +60,9 @@ public:
     const EniTable *getEniTable() const { return &eni_entries_; };
     bool getRouteTypeActions(dash::route_type::RoutingType routing_type, dash::route_type::RouteType& route_type);
     void handleFCStatusUpdate(bool is_enabled);
+    void handleMeterFCStatusUpdate(bool is_enabled);
     dash::types::IpAddress getApplianceVip();
-    bool hasApplianceEntry();
-    void clearMeterFCStats();
-    void refreshMeterFCStats(bool);
+    bool hasApplianceEntry();    
 
 private:
     ApplianceTable appliance_entries_;
@@ -101,20 +103,22 @@ private:
     bool removeEniRoute(const std::string& eni);
 
 private:
-    std::map<sai_object_id_t, std::string> m_eni_stat_work_queue;
+    /* DASH ENI & METER Flex Counter Related Variables */
     FlexCounterManager m_eni_stat_manager;
+    FlexCounterManager m_meter_stat_manager;
     bool m_eni_fc_status = false;
-    std::unordered_set<std::string> m_counter_stats;
+    bool m_meter_fc_status = false;
+    std::unordered_set<std::string> m_eni_counter_stats;
+    std::unordered_set<std::string> m_meter_counter_stats;
     std::unique_ptr<swss::Table> m_eni_name_table;
-    std::unique_ptr<swss::Table> m_vid_to_rid_table;
     std::shared_ptr<swss::DBConnector> m_counter_db;
-    std::shared_ptr<swss::DBConnector> m_asic_db;
-    swss::SelectableTimer* m_fc_update_timer = nullptr;
 
-    void doTask(swss::SelectableTimer&);
     void addEniMapEntry(sai_object_id_t oid, const std::string& name);
     void removeEniMapEntry(sai_object_id_t oid, const std::string& name);
     void addEniToFC(sai_object_id_t oid, const std::string& name);
     void removeEniFromFC(sai_object_id_t oid, const std::string& name);
+    void addEniToMeterFC(sai_object_id_t oid, const std::string& name);
+    void removeEniFromMeterFC(sai_object_id_t oid, const std::string& name);
     void refreshEniFCStats(bool);
+    void refreshMeterFCStats(bool);
 };

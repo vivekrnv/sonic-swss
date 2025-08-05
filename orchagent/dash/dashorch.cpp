@@ -40,9 +40,9 @@ extern sai_dash_trusted_vni_api_t* sai_dash_trusted_vni_api;
 extern sai_object_id_t gSwitchId;
 extern size_t gMaxBulkSize;
 extern CrmOrch *gCrmOrch;
-extern bool gTraditionalFlexCounter;
 
 #define FLEX_COUNTER_UPD_INTERVAL 1
+#define METER_FLEX_COUNTER_UPD_INTERVAL 1
 
 static std::unordered_map<string, sai_dash_eni_mac_override_type_t> sMacOverride =
 {
@@ -64,11 +64,11 @@ static const std::unordered_map<string, sai_direction_lookup_entry_action_t> dir
 
 DashOrch::DashOrch(DBConnector *db, vector<string> &tableName, DBConnector *app_state_db, ZmqServer *zmqServer) :
     ZmqOrch(db, tableName, zmqServer),
-    m_eni_stat_manager(ENI_STAT_COUNTER_FLEX_COUNTER_GROUP, StatsMode::READ, ENI_STAT_FLEX_COUNTER_POLLING_INTERVAL_MS, false)
+    m_eni_stat_manager(ENI_STAT_COUNTER_FLEX_COUNTER_GROUP, StatsMode::READ, ENI_STAT_FLEX_COUNTER_POLLING_INTERVAL_MS, false),
+    m_meter_stat_manager(METER_STAT_COUNTER_FLEX_COUNTER_GROUP, StatsMode::READ, METER_STAT_FLEX_COUNTER_POLLING_INTERVAL_MS, false)
 {
     SWSS_LOG_ENTER();
 
-    m_asic_db = std::shared_ptr<DBConnector>(new DBConnector("ASIC_DB", 0));
     m_counter_db = std::shared_ptr<DBConnector>(new DBConnector("COUNTERS_DB", 0));
     m_eni_name_table = make_unique<Table>(m_counter_db.get(), COUNTERS_ENI_NAME_MAP);
     dash_eni_result_table_ = make_unique<Table>(app_state_db, APP_DASH_ENI_TABLE_NAME);
@@ -77,23 +77,22 @@ DashOrch::DashOrch(DBConnector *db, vector<string> &tableName, DBConnector *app_
     dash_appliance_result_table_ = make_unique<Table>(app_state_db, APP_DASH_APPLIANCE_TABLE_NAME);
     dash_routing_type_result_table_ = make_unique<Table>(app_state_db, APP_DASH_ROUTING_TYPE_TABLE_NAME);
 
-    if (gTraditionalFlexCounter)
-    {
-        m_vid_to_rid_table = std::make_unique<Table>(m_asic_db.get(), "VIDTORID");
-    }
-
-    auto intervT = timespec { .tv_sec = FLEX_COUNTER_UPD_INTERVAL , .tv_nsec = 0 };
-    m_fc_update_timer = new SelectableTimer(intervT);
-    auto executorT = new ExecutableTimer(m_fc_update_timer, this, "FLEX_COUNTER_UPD_TIMER");
-    Orch::addExecutor(executorT);
-
     /* Fetch the available counter Ids */
-    m_counter_stats.clear();
+    m_eni_counter_stats.clear();
     auto stat_enum_list = queryAvailableCounterStats((sai_object_type_t)SAI_OBJECT_TYPE_ENI);
     for (auto &stat_enum: stat_enum_list)
     {
         auto counter_id = static_cast<sai_eni_stat_t>(stat_enum);
-        m_counter_stats.insert(sai_serialize_eni_stat(counter_id));
+        m_eni_counter_stats.insert(sai_serialize_eni_stat(counter_id));
+    }
+
+    /* Fetch the available meter bucket counter Ids */
+    m_meter_counter_stats.clear();
+    stat_enum_list = queryAvailableCounterStats((sai_object_type_t)SAI_OBJECT_TYPE_METER_BUCKET_ENTRY);
+    for (auto &stat_enum: stat_enum_list)
+    {
+        auto counter_id = static_cast<sai_meter_bucket_entry_stat_t>(stat_enum);
+        m_meter_counter_stats.insert(sai_serialize_meter_bucket_entry_stat(counter_id));
     }
 }
 
@@ -687,7 +686,7 @@ bool DashOrch::addEniObject(const string& eni, EniEntry& entry)
 
     addEniMapEntry(eni_id, eni);
     addEniToFC(eni_id, eni);
-    dash_meter_orch->addEniToMeterFC(eni_id,  eni);
+    addEniToMeterFC(eni_id,  eni);
 
     gCrmOrch->incCrmResUsedCounter(CrmResourceType::CRM_DASH_ENI);
 
@@ -827,7 +826,7 @@ bool DashOrch::removeEniObject(const string& eni)
     EniEntry entry = eni_entries_[eni];
     DashMeterOrch *dash_meter_orch = gDirectory.get<DashMeterOrch*>();
 
-    dash_meter_orch->removeEniFromMeterFC(entry.eni_id, eni);
+    removeEniFromMeterFC(entry.eni_id, eni);
     removeEniFromFC(entry.eni_id, eni);
     removeEniMapEntry(entry.eni_id, eni);
 
@@ -1278,26 +1277,6 @@ void DashOrch::doTask(ConsumerBase& consumer)
     }
 }
 
-void DashOrch::removeEniFromFC(sai_object_id_t oid, const string &name)
-{
-    SWSS_LOG_ENTER();
-
-    if (oid == SAI_NULL_OBJECT_ID)
-    {
-        SWSS_LOG_WARN("Cannot remove counter on NULL OID for eni %s", name.c_str());
-        return;
-    }
-
-    if (m_eni_stat_work_queue.find(oid) != m_eni_stat_work_queue.end())
-    {
-        m_eni_stat_work_queue.erase(oid);
-        return;
-    }
-
-    m_eni_stat_manager.clearCounterIdList(oid);
-    SWSS_LOG_INFO("Unregistering FC for %s, id: %s", name.c_str(), sai_serialize_object_id(oid).c_str());
-}
-
 void DashOrch::refreshEniFCStats(bool install)
 {
     for (auto it = eni_entries_.begin(); it != eni_entries_.end(); it++)
@@ -1315,16 +1294,15 @@ void DashOrch::refreshEniFCStats(bool install)
 
 void DashOrch::refreshMeterFCStats(bool install)
 {
-    DashMeterOrch *dash_meter_orch = gDirectory.get<DashMeterOrch*>();
     for (auto it = eni_entries_.begin(); it != eni_entries_.end(); it++)
     {
         if (install)
         {
-            dash_meter_orch->addEniToMeterFC(it->second.eni_id, it->first);
+            addEniToMeterFC(it->second.eni_id, it->first);
         }
         else
         {
-            dash_meter_orch->removeEniFromMeterFC(it->second.eni_id, it->first);
+            removeEniFromMeterFC(it->second.eni_id, it->first);
         }
     }
 }
@@ -1333,19 +1311,52 @@ void DashOrch::handleFCStatusUpdate(bool enabled)
 {
     bool prev_enabled = m_eni_fc_status;
     m_eni_fc_status = enabled; /* Update the status */
-    if (!enabled && prev_enabled)
+    if (m_eni_fc_status != prev_enabled)
     {
-        m_fc_update_timer->stop();
-        refreshEniFCStats(false); /* Clear any existing FC entries */
-    }
-    else if (enabled && !prev_enabled)
-    {
-        refreshEniFCStats(true);
-        m_fc_update_timer->start();
+        refreshEniFCStats(m_eni_fc_status);
     }
 }
 
-void DashOrch::addEniMapEntry(sai_object_id_t oid, const string &name) {
+void DashOrch::handleMeterFCStatusUpdate(bool enabled)
+{
+    bool prev_enabled = m_meter_fc_status;
+    m_meter_fc_status = enabled; /* Update the status */
+    if (m_meter_fc_status != prev_enabled)
+    {
+        refreshMeterFCStats(m_meter_fc_status);
+    }
+}
+
+void DashOrch::removeEniFromFC(sai_object_id_t oid, const string &name)
+{
+    SWSS_LOG_ENTER();
+
+    if (oid == SAI_NULL_OBJECT_ID)
+    {
+        SWSS_LOG_WARN("Cannot remove counter on NULL OID for eni %s", name.c_str());
+        return;
+    }
+
+    m_eni_stat_manager.clearCounterIdList(oid);
+    SWSS_LOG_INFO("Unregistering FC for %s, id: %s", name.c_str(), sai_serialize_object_id(oid).c_str());
+}
+
+void DashOrch::removeEniFromMeterFC(sai_object_id_t oid, const string &name)
+{
+    SWSS_LOG_ENTER();
+
+    if (oid == SAI_NULL_OBJECT_ID)
+    {
+        SWSS_LOG_WARN("Cannot remove meter counter on NULL OID for eni %s", name.c_str());
+        return;
+    }
+
+    m_meter_stat_manager.clearCounterIdList(oid);
+    SWSS_LOG_INFO("Unregistering Meter FC for ENI %s, oid %s", name.c_str(), sai_serialize_object_id(oid).c_str());
+}
+
+void DashOrch::addEniMapEntry(sai_object_id_t oid, const string &name) 
+{
     SWSS_LOG_ENTER();
 
     if (oid == SAI_NULL_OBJECT_ID)
@@ -1361,7 +1372,8 @@ void DashOrch::addEniMapEntry(sai_object_id_t oid, const string &name) {
     m_eni_name_table->set("", eniNameFvs);
 }
 
-void DashOrch::removeEniMapEntry(sai_object_id_t oid, const string &name) {
+void DashOrch::removeEniMapEntry(sai_object_id_t oid, const string &name) 
+{
     SWSS_LOG_ENTER();
 
     if (oid == SAI_NULL_OBJECT_ID)
@@ -1376,50 +1388,38 @@ void DashOrch::removeEniMapEntry(sai_object_id_t oid, const string &name) {
 
 void DashOrch::addEniToFC(sai_object_id_t oid, const string &name)
 {
+    SWSS_LOG_ENTER();
+
     if (!m_eni_fc_status) 
     {
        return ;
     }
-    auto was_empty = m_eni_stat_work_queue.empty();
-    m_eni_stat_work_queue[oid] = name;
-    if (was_empty)
+
+    if (oid == SAI_NULL_OBJECT_ID)
     {
-        m_fc_update_timer->start();
+        SWSS_LOG_WARN("Cannot add counter on NULL OID for ENI %s", name.c_str());
+        return;
     }
+
+    SWSS_LOG_INFO("Registering FC for ENI: %s, id %s", name.c_str(), sai_serialize_object_id(oid).c_str());
+    m_eni_stat_manager.setCounterIdList(oid, CounterType::ENI, m_eni_counter_stats);
 }
 
-void DashOrch::doTask(SelectableTimer &timer)
+void DashOrch::addEniToMeterFC(sai_object_id_t oid, const string &name)
 {
-    SWSS_LOG_ENTER();
-
-    if (!m_eni_fc_status)
+    if (!m_meter_fc_status) 
     {
-        m_fc_update_timer->stop();
-        return ;
+        return;
     }
 
-    for (auto it = m_eni_stat_work_queue.begin(); it != m_eni_stat_work_queue.end(); )
+    if (oid == SAI_NULL_OBJECT_ID)
     {
-        string value;
-        const auto id = sai_serialize_object_id(it->first);
-
-        if (!gTraditionalFlexCounter || m_vid_to_rid_table->hget("", id, value))
-        {
-            SWSS_LOG_INFO("Registering FC for ENI: %s, id %s", it->second.c_str(), id.c_str());
-
-            m_eni_stat_manager.setCounterIdList(it->first, CounterType::ENI, m_counter_stats);
-            it = m_eni_stat_work_queue.erase(it);
-        }
-        else
-        {
-            ++it;
-        }
+        SWSS_LOG_WARN("Cannot add meter counter on NULL OID for ENI %s", name.c_str());
+        return;
     }
 
-    if (m_eni_stat_work_queue.empty())
-    {
-        m_fc_update_timer->stop();
-    }
+    SWSS_LOG_INFO("Registering Meter FC for ENI %s, oid %s", name.c_str(), sai_serialize_object_id(oid).c_str());
+    m_meter_stat_manager.setCounterIdList(oid, CounterType::DASH_METER, m_meter_counter_stats);
 }
 
 dash::types::IpAddress DashOrch::getApplianceVip()
