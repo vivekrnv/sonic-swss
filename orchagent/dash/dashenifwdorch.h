@@ -306,7 +306,7 @@ public:
     
     string toKey() const;
     std::shared_ptr<EniFwdCtxBase>& getCtx() {return ctx;}
-    bool findLocalEp(std::string&);
+    bool findLocalEp(std::string&) const;
     swss::MacAddress getMac() const { return mac_; } // Can only be set during object creation
     std::vector<std::string> getEpList() { return ep_list_; }
     std::string getPrimaryId() const { return primary_id_; }

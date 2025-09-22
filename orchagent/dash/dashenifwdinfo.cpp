@@ -429,7 +429,7 @@ bool EniInfo::update(const Request& db_request)
     return true;
 }
 
-bool EniInfo::findLocalEp(std::string& local_endpoint)
+bool EniInfo::findLocalEp(std::string& local_endpoint) const
 {
     /* Check if atleast one of the endpoints is local */
     bool found = false;
