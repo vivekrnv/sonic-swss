@@ -50,7 +50,7 @@ void ZmqOrch::addConsumer(DBConnector *db, string tableName, int pri, ZmqServer 
         if (zmqServer != nullptr)
         {
             SWSS_LOG_DEBUG("ZmqConsumer initialize for: %s", tableName.c_str());
-            addExecutor(new ZmqConsumer(new ZmqConsumerStateTable(db, tableName, *zmqServer, 65536, pri), this, tableName));
+            addExecutor(new ZmqConsumer(new ZmqConsumerStateTable(db, tableName, *zmqServer, gBatchSize, pri), this, tableName));
         }
         else
         {

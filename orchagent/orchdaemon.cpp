@@ -72,7 +72,7 @@ HFTelOrch *gHFTOrch;
 bool gIsNatSupported = false;
 event_handle_t g_events_handle;
 
-#define DEFAULT_MAX_BULK_SIZE 65536
+#define DEFAULT_MAX_BULK_SIZE 1000
 size_t gMaxBulkSize = DEFAULT_MAX_BULK_SIZE;
 
 OrchDaemon::OrchDaemon(DBConnector *applDb, DBConnector *configDb, DBConnector *stateDb, DBConnector *chassisAppDb, ZmqServer *zmqServer) :
