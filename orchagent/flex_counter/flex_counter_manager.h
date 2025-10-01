@@ -154,7 +154,6 @@ struct CachedObjects
             size_t seed = 0;
             std::vector<std::string> sorted_stats(key.counter_stats.begin(), key.counter_stats.end());
             std::sort(sorted_stats.begin(), sorted_stats.end());
-            // TODO: With libboost 1.83+, boost::hash_unordered_range can be used instead of sorting the stats
             boost::hash_combine(seed, boost::hash_range(sorted_stats.begin(), sorted_stats.end()));
             boost::hash_combine(seed, key.counter_type);
             boost::hash_combine(seed, key.switch_id);
