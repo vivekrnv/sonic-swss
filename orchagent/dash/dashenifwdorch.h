@@ -43,10 +43,8 @@ typedef enum
 
 typedef enum
 {
-    INBOUND = 0,
-    OUTBOUND,
-    INBOUND_TERM,
-    OUTBOUND_TERM
+    NO_TUNNEL_TERM = 0,
+    TUNNEL_TERM
 } rule_type_t;
 
 
@@ -69,12 +67,9 @@ namespace DashEniFwd
 
     /* ENI Registry Fields */
     static constexpr const char* TABLE_TYPE         = "ENI_REDIRECT";
-    static constexpr const char* OUT_MAC_DIR        = "dst";
     static constexpr const char* TABLE              = "ENI";
     static constexpr const char* VDPU_IDS           = "vdpu_ids";
     static constexpr const char* PRIMARY            = "primary_vdpu";
-    static constexpr const char* OUT_VNI            = "outbound_vni";
-    static constexpr const char* OUT_MAC_LOOKUP     = "outbound_eni_mac_lookup";
 
     /* DPU Registry Fields */
     static constexpr const char* STATE              = "state";
@@ -90,8 +85,6 @@ const request_description_t eni_dash_fwd_desc = {
     {
         { DashEniFwd::VDPU_IDS,               REQ_T_STRING_LIST }, // VDPU ID's
         { DashEniFwd::PRIMARY,                REQ_T_STRING },
-        { DashEniFwd::OUT_VNI,                REQ_T_UINT },
-        { DashEniFwd::OUT_MAC_LOOKUP,         REQ_T_STRING },
     },
     { DashEniFwd::PRIMARY }
 };
@@ -270,7 +263,6 @@ class EniAclRule
 {
 public:
     static const int BASE_PRIORITY;
-    static const std::vector<std::string> RULE_NAMES;
 
     EniAclRule(rule_type_t type, EniInfo& eni) :
         type_(type),
@@ -310,8 +302,6 @@ public:
     swss::MacAddress getMac() const { return mac_; } // Can only be set during object creation
     std::vector<std::string> getEpList() { return ep_list_; }
     std::string getPrimaryId() const { return primary_id_; }
-    uint64_t getOutVni() const { return outbound_vni_; }
-    std::string getOutMacLookup() const { return outbound_mac_lookup_; }
     std::string getVnet() const { return vnet_name_; }
 
 protected:
@@ -327,8 +317,6 @@ protected:
     std::map<rule_type_t, EniAclRule> rule_container_;
     std::vector<std::string> ep_list_;
     std::string primary_id_;
-    uint64_t outbound_vni_;
-    std::string outbound_mac_lookup_;
     std::string vnet_name_;
     swss::MacAddress mac_;
     std::string mac_key_; // Formatted MAC key
@@ -354,7 +342,6 @@ public:
     virtual bool isNeighborResolved(const NextHopKey&) = 0;
     virtual void resolveNeighbor(const NeighborEntry &) = 0;
     virtual string getRouterIntfsAlias(const IpAddress &, const string & = "") = 0;
-    virtual bool findVnetVni(const std::string&, uint64_t& ) = 0;
     virtual bool findVnetTunnel(const std::string&, string&) = 0;
     virtual sai_object_id_t createNextHopTunnel(string, IpAddress) = 0;
     virtual bool removeNextHopTunnel(string, IpAddress) = 0;
@@ -412,7 +399,6 @@ public:
     bool isNeighborResolved(const NextHopKey&) override;
     void resolveNeighbor(const NeighborEntry&) override;
     std::string getRouterIntfsAlias(const IpAddress &, const string & = "") override;
-    bool findVnetVni(const std::string&, uint64_t&) override;
     bool findVnetTunnel(const std::string&, string&) override;
     std::map<std::string, Port>& getAllPorts() override;
     virtual sai_object_id_t createNextHopTunnel(string, IpAddress) override;

@@ -21,7 +21,6 @@ namespace dashenifwdorch_ut
               MOCK_METHOD(std::string, getRouterIntfsAlias, (const swss::IpAddress&, const string& vrf), (override));
               MOCK_METHOD(bool, isNeighborResolved, (const NextHopKey&), (override));
               MOCK_METHOD(void, resolveNeighbor, (const NextHopKey&), (override));
-              MOCK_METHOD(bool, findVnetVni, (const std::string&, uint64_t&), (override));
               MOCK_METHOD(bool, findVnetTunnel, (const std::string&, std::string&), (override));
               MOCK_METHOD(sai_object_id_t, createNextHopTunnel, (std::string, IpAddress), (override));
               MOCK_METHOD(bool, removeNextHopTunnel, (std::string, IpAddress), (override));
@@ -59,8 +58,6 @@ namespace dashenifwdorch_ut
               string remote_npuv4 = "20.0.0.2";
               string remote_2_npuv4 = "20.0.0.3";
 
-              uint64_t test_vni = 1234;
-              uint64_t test_vni2 = 5678;
               int BASE_PRIORITY = 9996;
 
               void populateDpuTable()
@@ -231,7 +228,7 @@ namespace dashenifwdorch_ut
               /* Mock calls to intfsOrch and neighOrch
                  If neighbor is already resolved, resolveNeighbor is not called  */
               EXPECT_CALL(*ctx, getRouterIntfsAlias(nh_ip, _)).WillOnce(Return(alias_dpu)); /* Once per local endpoint */
-              EXPECT_CALL(*ctx, isNeighborResolved(nh)).Times(4).WillRepeatedly(Return(true));
+              EXPECT_CALL(*ctx, isNeighborResolved(nh)).Times(2).WillRepeatedly(Return(true));
               EXPECT_CALL(*ctx, resolveNeighbor(nh)).Times(0);
 
               doDashEniFwdTableTask(applDb.get(), 
@@ -243,7 +240,6 @@ namespace dashenifwdorch_ut
                                        {
                                           { DashEniFwd::VDPU_IDS, "vdpu0,vdpu1" },
                                           { DashEniFwd::PRIMARY, "vdpu0" }, // Local endpoint is the primary
-                                          { DashEniFwd::OUT_VNI, to_string(test_vni) }
                                        } 
                                    }
                             }
@@ -251,112 +247,18 @@ namespace dashenifwdorch_ut
               );
 
               /* Check ACL Rules  */
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_IN", {
+              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key, {
                             { ACTION_REDIRECT_ACTION , local_pav4 }, { MATCH_DST_IP, test_vip }, 
-                            { RULE_PRIORITY, to_string(BASE_PRIORITY + INBOUND) },
+                            { RULE_PRIORITY, to_string(BASE_PRIORITY) },
                             { MATCH_INNER_DST_MAC, test_mac }
               });
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_OUT", {
+              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_TERM", {
                             { ACTION_REDIRECT_ACTION, local_pav4 }, { MATCH_DST_IP, test_vip },
-                            { RULE_PRIORITY, to_string(BASE_PRIORITY + OUTBOUND) },
-                            { MATCH_INNER_SRC_MAC, test_mac }, { MATCH_TUNNEL_VNI, to_string(test_vni) }
-              });
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_IN_TERM", {
-                            { ACTION_REDIRECT_ACTION, local_pav4 }, { MATCH_DST_IP, test_vip },
-                            { RULE_PRIORITY, to_string(BASE_PRIORITY + INBOUND_TERM) },
+                            { RULE_PRIORITY, to_string(BASE_PRIORITY + rule_type_t::TUNNEL_TERM) },
                             { MATCH_INNER_DST_MAC, test_mac },
                             { MATCH_TUNNEL_TERM, "true"}
               });
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_OUT_TERM", {
-                            { ACTION_REDIRECT_ACTION, local_pav4 }, { MATCH_DST_IP, test_vip },
-                            { RULE_PRIORITY, to_string(BASE_PRIORITY + OUTBOUND_TERM) },
-                            { MATCH_INNER_SRC_MAC, test_mac }, { MATCH_TUNNEL_VNI, to_string(test_vni) },
-                            { MATCH_TUNNEL_TERM, "true"}
-              });
        }
-
-       /* 
-              Infer VNI by reading from the VnetOrch, resolved Neighbor
-       */
-       TEST_F(DashEniFwdOrchTest, LocalNeighbor_NoVNI)
-       {
-              auto nh_ip = swss::IpAddress(local_pav4);
-              NextHopKey nh = {nh_ip, alias_dpu};
-
-              EXPECT_CALL(*ctx, findVnetVni(vnet_name, _)).Times(1) // Called once per ENI
-                     .WillRepeatedly(DoAll(
-                     SetArgReferee<1>(test_vni2),
-                     Return(true)
-              ));
-
-              EXPECT_CALL(*ctx, getRouterIntfsAlias(nh_ip, _)).WillOnce(Return(alias_dpu));
-              EXPECT_CALL(*ctx, isNeighborResolved(nh)).Times(4).WillRepeatedly(Return(true));
-
-              doDashEniFwdTableTask(applDb.get(), 
-                     deque<KeyOpFieldsValuesTuple>(
-                            {
-                                   {
-                                       vnet_name + ":" + test_mac2,
-                                       SET_COMMAND,
-                                       {
-                                          { DashEniFwd::VDPU_IDS, "vdpu0,vdpu1" },
-                                          { DashEniFwd::PRIMARY, "vdpu0" }, // Local endpoint is the primary
-                                          // No Explicit VNI from the DB, should be inferred from the VNetOrch
-                                       } 
-                                   }
-                            }
-                     )
-              );
-
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac2_key + "_OUT", {
-                            { ACTION_REDIRECT_ACTION, local_pav4 }, { MATCH_DST_IP, test_vip },
-                            { RULE_PRIORITY, to_string(BASE_PRIORITY + OUTBOUND) },
-                            { MATCH_INNER_SRC_MAC, test_mac2 }, { MATCH_TUNNEL_VNI, to_string(test_vni2) }
-              });
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac2_key + "_OUT_TERM", {
-                            { ACTION_REDIRECT_ACTION, local_pav4 }, { MATCH_DST_IP, test_vip },
-                            { RULE_PRIORITY, to_string(BASE_PRIORITY + OUTBOUND_TERM) },
-                            { MATCH_INNER_SRC_MAC, test_mac2 }, { MATCH_TUNNEL_VNI, to_string(test_vni2) },
-                            { MATCH_TUNNEL_TERM, "true"}
-              });
-       }
-
-       /* 
-              Verify MAC direction
-       */
-       TEST_F(DashEniFwdOrchTest, LocalNeighbor_MacDirection)
-       {
-              auto nh_ip = swss::IpAddress(local_pav4);
-              NextHopKey nh = {nh_ip, alias_dpu};
-
-              EXPECT_CALL(*ctx, getRouterIntfsAlias(nh_ip, _)).WillOnce(Return(alias_dpu));
-              EXPECT_CALL(*ctx, isNeighborResolved(nh)).Times(4).WillRepeatedly(Return(true));
-
-              doDashEniFwdTableTask(applDb.get(),
-                     deque<KeyOpFieldsValuesTuple>(
-                            {
-                                   {
-                                       vnet_name + ":" + test_mac2,
-                                       SET_COMMAND,
-                                       {
-                                          { DashEniFwd::VDPU_IDS, "vdpu0,vdpu1" },
-                                          { DashEniFwd::PRIMARY, "vdpu0" }, // Local endpoint is the primary
-                                          { DashEniFwd::OUT_VNI, to_string(test_vni2) },
-                                          { DashEniFwd::OUT_MAC_LOOKUP, "dst" }
-                                       }
-                                   }
-                            }
-                     )
-              );
-
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac2_key + "_OUT", {
-                            { MATCH_INNER_DST_MAC, test_mac2 },
-              });
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac2_key + "_OUT_TERM", {
-                            { MATCH_INNER_DST_MAC, test_mac2 }, { MATCH_TUNNEL_TERM, "true"}
-              });
-       }
-
 
        /*
               VNI is provided by HaMgrd, UnResolved Neighbor
@@ -369,9 +271,9 @@ namespace dashenifwdorch_ut
               EXPECT_CALL(*ctx, getRouterIntfsAlias(nh_ip, _)).WillOnce(Return(alias_dpu));
 
               /* Neighbor is not resolved, 1 per rule + 1 for initLocalEndpoints */
-              EXPECT_CALL(*ctx, isNeighborResolved(nh)).Times(9).WillRepeatedly(Return(false));
+              EXPECT_CALL(*ctx, isNeighborResolved(nh)).Times(5).WillRepeatedly(Return(false));
               /* resolveNeighbor is called because the neigh is not resolved */
-              EXPECT_CALL(*ctx, resolveNeighbor(nh)).Times(9); /* 1 per rule + 1 for initLocalEndpoints */
+              EXPECT_CALL(*ctx, resolveNeighbor(nh)).Times(5); /* 1 per rule + 1 for initLocalEndpoints */
 
               eniOrch->initLocalEndpoints();
 
@@ -385,7 +287,6 @@ namespace dashenifwdorch_ut
                                        {
                                           { DashEniFwd::VDPU_IDS, "vdpu0,vdpu1" },
                                           { DashEniFwd::PRIMARY, "vdpu0" }, // Local endpoint is the primary
-                                          { DashEniFwd::OUT_VNI, to_string(test_vni) }
                                        } 
                                    },
                                    {
@@ -394,38 +295,28 @@ namespace dashenifwdorch_ut
                                        {
                                           { DashEniFwd::VDPU_IDS, "vdpu0,vdpu1" },
                                           { DashEniFwd::PRIMARY, "vdpu0" }, // Local endpoint is the primary
-                                          { DashEniFwd::OUT_VNI, to_string(test_vni2) }
                                        }
                                    }
                             }
                      )
               );
 
-              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key+ "_IN");
-              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key+ "_IN_TERM");
-              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac2_key + "_OUT");
-              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac2_key + "_OUT_TERM");
-
+              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key);
+              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key+ "_TERM");
+       
               /* Neighbor is resolved, Trigger a nexthop update (1 for Neigh Update) * 4 for Types of Rules */
-              EXPECT_CALL(*ctx, isNeighborResolved(nh)).Times(8).WillRepeatedly(Return(true));
+              EXPECT_CALL(*ctx, isNeighborResolved(nh)).Times(4).WillRepeatedly(Return(true));
 
               NeighborEntry temp_entry = nh;
               NeighborUpdate update = { temp_entry, MacAddress(), true };
               eniOrch->update(SUBJECT_TYPE_NEIGH_CHANGE, static_cast<void *>(&update));
 
               /* Check ACL Rules  */
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_IN", {
+              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key, {
                             { ACTION_REDIRECT_ACTION, local_pav4 }
               });
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_IN_TERM", {
+              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_TERM", {
                             { ACTION_REDIRECT_ACTION, local_pav4 }, { MATCH_TUNNEL_TERM, "true"}
-              });
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac2_key + "_OUT", {
-                            { ACTION_REDIRECT_ACTION, local_pav4 },
-              });
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac2_key + "_OUT_TERM", {
-                            { ACTION_REDIRECT_ACTION, local_pav4 }, { MATCH_TUNNEL_TERM, "true"},
-                            { MATCH_INNER_SRC_MAC, test_mac2 },
               });
        }
 
@@ -437,9 +328,9 @@ namespace dashenifwdorch_ut
               IpAddress remote_npuv4_ip = IpAddress(remote_npuv4);
               EXPECT_CALL(*ctx, getRouterIntfsAlias(_, _)).WillOnce(Return(alias_dpu));
               /* calls to neighOrch expected for tunn termination entries */
-              EXPECT_CALL(*ctx, isNeighborResolved(_)).Times(4).WillRepeatedly(Return(true));
+              EXPECT_CALL(*ctx, isNeighborResolved(_)).Times(2).WillRepeatedly(Return(true));
 
-              EXPECT_CALL(*ctx, findVnetTunnel(vnet_name, _)).Times(4) // Once per non-tunnel term rules
+              EXPECT_CALL(*ctx, findVnetTunnel(vnet_name, _)).Times(2) // Once per non-tunnel term rules
                      .WillRepeatedly(DoAll(
                      SetArgReferee<1>(tunnel_name),
                      Return(true)
@@ -457,7 +348,6 @@ namespace dashenifwdorch_ut
                                        {
                                           { DashEniFwd::VDPU_IDS, "vdpu0,vdpu1" },
                                           { DashEniFwd::PRIMARY, "vdpu1" }, // Remote endpoint is the primary
-                                          { DashEniFwd::OUT_VNI, to_string(test_vni) }
                                        } 
                                    },
                                    {
@@ -466,7 +356,6 @@ namespace dashenifwdorch_ut
                                        {
                                           { DashEniFwd::VDPU_IDS, "vdpu0,vdpu1" },
                                           { DashEniFwd::PRIMARY, "vdpu1" }, // Remote endpoint is the primary
-                                          { DashEniFwd::OUT_VNI, to_string(test_vni2) }
                                        } 
                                    }
                             }
@@ -474,22 +363,13 @@ namespace dashenifwdorch_ut
               );
 
               /* Check ACL Rules  */
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_IN", {
-                            { ACTION_REDIRECT_ACTION, remote_npuv4 + "@" + tunnel_name }
-              });
-              /* Tunnel termiantion rule should be local endpoint */
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_OUT_TERM", {
-                            { ACTION_REDIRECT_ACTION, local_pav4 }
-              });
-
-              /* Rules for second ENI */
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac2_key + "_OUT", {
+              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key, {
                             { ACTION_REDIRECT_ACTION, remote_npuv4 + "@" + tunnel_name }
               });
 
               /* Check Ref count */
               ASSERT_TRUE(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name) != ctx->remote_nh_map_.end());
-              EXPECT_EQ(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name)->second.first, 4); /* 4 rules using this NH */
+              EXPECT_EQ(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name)->second.first, 2);
               EXPECT_EQ(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name)->second.second, 0x400000000064d);
 
               EXPECT_CALL(*ctx, removeNextHopTunnel(tunnel_name, remote_npuv4_ip)).WillOnce(Return(true));
@@ -511,14 +391,10 @@ namespace dashenifwdorch_ut
                             }
                      )
               );
-              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac2_key + "_IN");
-              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac2_key + "_IN_TERM");
-              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac2_key + "_OUT");
-              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac2_key + "_OUT_TERM");
-              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key+ "_IN");
-              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key+ "_IN_TERM");
-              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key+ "_OUT");
-              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key+ "_OUT_TERM");
+              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac2_key );
+              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac2_key + "_TERM");
+              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key);
+              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key+ "_TERM");
               /* Check the tunnel is removed */
               ASSERT_TRUE(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name) == ctx->remote_nh_map_.end());
        }
@@ -530,9 +406,9 @@ namespace dashenifwdorch_ut
        {
               IpAddress remote_npuv4_ip = IpAddress(remote_npuv4);
               EXPECT_CALL(*ctx, getRouterIntfsAlias(_, _)).WillOnce(Return(alias_dpu));
-              /* 2 calls made for tunnel termination rules */
-              EXPECT_CALL(*ctx, isNeighborResolved(_)).Times(2).WillRepeatedly(Return(true));
-              EXPECT_CALL(*ctx, findVnetTunnel(vnet_name, _)).Times(2) // Once per non-tunnel term rules
+              /* 1 calls made for tunnel termination rules */
+              EXPECT_CALL(*ctx, isNeighborResolved(_)).Times(1).WillRepeatedly(Return(true));
+              EXPECT_CALL(*ctx, findVnetTunnel(vnet_name, _)).Times(1) // Once per non-tunnel term rules
                      .WillRepeatedly(DoAll(
                      SetArgReferee<1>(tunnel_name),
                      Return(true)
@@ -549,25 +425,21 @@ namespace dashenifwdorch_ut
                                        {
                                           { DashEniFwd::VDPU_IDS, "vdpu0,vdpu1" },
                                           { DashEniFwd::PRIMARY, "vdpu1" }, // Remote endpoint is the primary
-                                          { DashEniFwd::OUT_VNI, to_string(test_vni) }
                                        } 
                                    }
                             }
                      )
               );
 
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_IN", {
-                            { ACTION_REDIRECT_ACTION, remote_npuv4 + "@" + tunnel_name }
-              });
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_OUT", {
+              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key, {
                             { ACTION_REDIRECT_ACTION, remote_npuv4 + "@" + tunnel_name }
               });
               ASSERT_TRUE(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name) != ctx->remote_nh_map_.end());
-              EXPECT_EQ(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name)->second.first, 2); /* 4 rules using this NH */
+              EXPECT_EQ(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name)->second.first, 1);
               EXPECT_EQ(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name)->second.second, 0x400000000064d);
 
-              /* 2 calls will be made for non tunnel termination rules after primary switch */
-              EXPECT_CALL(*ctx, isNeighborResolved(_)).Times(2).WillRepeatedly(Return(true));
+              /* 1 calls will be made for non tunnel termination rules after primary switch */
+              EXPECT_CALL(*ctx, isNeighborResolved(_)).Times(1).WillRepeatedly(Return(true));
               EXPECT_CALL(*ctx, removeNextHopTunnel(tunnel_name, remote_npuv4_ip)).WillOnce(Return(true));
 
               doDashEniFwdTableTask(applDb.get(), 
@@ -583,14 +455,6 @@ namespace dashenifwdorch_ut
                             }
                      )
               );
-
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_OUT", {
-                            { ACTION_REDIRECT_ACTION, local_pav4 }
-              });
-              /* Check ACL Rules  */
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_OUT_TERM", {
-                            { ACTION_REDIRECT_ACTION, local_pav4 }
-              });
               /* Check the tunnel is removed */
               ASSERT_TRUE(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name) == ctx->remote_nh_map_.end());
        }
@@ -602,7 +466,7 @@ namespace dashenifwdorch_ut
        TEST_F(DashEniFwdOrchTest, RemoteNeighbor_NoTunnelTerm)
        {      
               IpAddress remote_npuv4_ip = IpAddress(remote_2_npuv4);
-              EXPECT_CALL(*ctx, findVnetTunnel(vnet_name, _)).Times(2) // Only two rules are created
+              EXPECT_CALL(*ctx, findVnetTunnel(vnet_name, _)).Times(1) // Only 1 rule is created
                      .WillRepeatedly(DoAll(
                      SetArgReferee<1>(tunnel_name),
                      Return(true)
@@ -620,23 +484,18 @@ namespace dashenifwdorch_ut
                                        {
                                           { DashEniFwd::VDPU_IDS, "vdpu1,vdpu2" },
                                           { DashEniFwd::PRIMARY, "vdpu2" }, // Remote endpoint is the primary
-                                          { DashEniFwd::OUT_VNI, to_string(test_vni) }
                                        } 
                                    }
                             }
                      )
               );
 
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_IN", {
-                            { ACTION_REDIRECT_ACTION, remote_2_npuv4 + "@" + tunnel_name }
-              });
-              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key+ "_OUT", {
+              checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key, {
                             { ACTION_REDIRECT_ACTION, remote_2_npuv4 + "@" + tunnel_name }
               });
 
               /* Tunnel termination rules are not installed */
-              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key+ "_IN_TERM");
-              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key+ "_OUT_TERM");
+              checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key+ "_TERM");
        }
 
        /* 
@@ -674,7 +533,7 @@ namespace dashenifwdorch_ut
               eniOrch->initAclTableCfg();
 
               checkKFV(&aclTableType, "ENI_REDIRECT", {
-                     { ACL_TABLE_TYPE_MATCHES, "TUNNEL_VNI,DST_IP,INNER_SRC_MAC,INNER_DST_MAC,TUNNEL_TERM" },
+                     { ACL_TABLE_TYPE_MATCHES, "DST_IP,INNER_DST_MAC,TUNNEL_TERM" },
                      { ACL_TABLE_TYPE_ACTIONS, "REDIRECT_ACTION" },
                      { ACL_TABLE_TYPE_BPOINT_TYPES, "PORT,PORTCHANNEL" }
               });
@@ -699,8 +558,6 @@ namespace mock_orch_test
               ASSERT_NO_THROW(ctx.resolveNeighbor(nh));
               ASSERT_NO_THROW(ctx.getRouterIntfsAlias(IpAddress("10.0.0.1")));
 
-              uint64_t vni;
-              ASSERT_NO_THROW(ctx.findVnetVni("Vnet_1000", vni));
               string tunnel;
               ASSERT_NO_THROW(ctx.findVnetTunnel("Vnet_1000", tunnel));
               ASSERT_NO_THROW(ctx.getAllPorts());

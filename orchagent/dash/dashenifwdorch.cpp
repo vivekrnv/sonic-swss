@@ -80,9 +80,7 @@ void DashEniFwdOrch::handleNeighUpdate(const NeighborUpdate& update)
 void DashEniFwdOrch::initAclTableCfg()
 {
     vector<string> match_list = {
-                                  MATCH_TUNNEL_VNI,
                                   MATCH_DST_IP,
-                                  MATCH_INNER_SRC_MAC,
                                   MATCH_INNER_DST_MAC,
                                   MATCH_TUNNEL_TERM
                                 };
@@ -628,16 +626,6 @@ void EniFwdCtx::resolveNeighbor(const NeighborEntry& nh)
 string EniFwdCtx::getRouterIntfsAlias(const IpAddress &ip, const string &vrf_name)
 {
     return intfsorch_->getRouterIntfsAlias(ip, vrf_name);
-}
-
-bool EniFwdCtx::findVnetVni(const string& vnet_name, uint64_t& vni)
-{
-    if (vnetorch_->isVnetExists(vnet_name))
-    {
-        vni = vnetorch_->getTypePtr<VNetObject>(vnet_name)->getVni();
-        return true;
-    }
-    return false;
 }
 
 bool EniFwdCtx::findVnetTunnel(const string& vnet_name, string& tunnel) 

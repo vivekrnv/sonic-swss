@@ -4,12 +4,6 @@ using namespace swss;
 using namespace std;
 
 const int EniAclRule::BASE_PRIORITY = 9996;
-const vector<string> EniAclRule::RULE_NAMES = {
-    "IN",
-    "OUT",
-    "IN_TERM",
-    "OUT_TERM"
-};
 
 unique_ptr<EniNH> EniNH::createNextHop(dpu_type_t type, const IpAddress& ip)
 {
@@ -78,7 +72,11 @@ string RemoteEniNH::getRedirectVal()
 
 void EniAclRule::setKey(EniInfo& eni)
 {
-    name_ = string(DashEniFwd::TABLE) + ":" + eni.toKey() + "_" + EniAclRule::RULE_NAMES[type_];
+    name_ = string(DashEniFwd::TABLE) + ":" + eni.toKey();
+    if (type_ == rule_type_t::TUNNEL_TERM)
+    {
+        name_ += "_TERM";
+    }
 }
 
 update_type_t EniAclRule::processUpdate(EniInfo& eni)
@@ -90,7 +88,7 @@ update_type_t EniAclRule::processUpdate(EniInfo& eni)
     update_type_t update_type = PRIMARY_UPDATE;
     std::string primary_id;
 
-    if (type_ == rule_type_t::INBOUND_TERM || type_ == rule_type_t::OUTBOUND_TERM)
+    if (type_ == rule_type_t::TUNNEL_TERM)
     {
         /* Tunnel term entries always use local endpoint regardless of primary id */
         if (!eni.findLocalEp(primary_id))
@@ -201,14 +199,9 @@ void EniAclRule::fire(EniInfo& eni)
         { ACTION_REDIRECT_ACTION, nh_->getRedirectVal() }
     };
 
-    if (type_ == rule_type_t::INBOUND_TERM || type_ == rule_type_t::OUTBOUND_TERM)
+    if (type_ == rule_type_t::TUNNEL_TERM)
     {
         fv_.push_back({MATCH_TUNNEL_TERM, "true"});
-    }
-
-    if (type_ == rule_type_t::OUTBOUND || type_ == rule_type_t::OUTBOUND_TERM)
-    {
-        fv_.push_back({MATCH_TUNNEL_VNI, to_string(eni.getOutVni())});
     }
     
     ctx->rule_table->set(key, fv_);
@@ -218,10 +211,6 @@ void EniAclRule::fire(EniInfo& eni)
 
 string EniAclRule::getMacMatchDirection(EniInfo& eni)
 {
-    if (type_ == OUTBOUND || type_ == OUTBOUND_TERM)
-    {
-        return eni.getOutMacLookup();
-    }
     return MATCH_INNER_DST_MAC;
 }
 
@@ -294,8 +283,6 @@ bool EniInfo::create(const Request& db_request)
     auto updates = db_request.getAttrFieldNames();
     auto itr_ep_list = updates.find(DashEniFwd::VDPU_IDS);
     auto itr_primary_id = updates.find(DashEniFwd::PRIMARY);
-    auto itr_out_vni = updates.find(DashEniFwd::OUT_VNI);
-    auto itr_out_mac_dir = updates.find(DashEniFwd::OUT_MAC_LOOKUP);
 
     /* Validation Checks */
     if (itr_ep_list == updates.end() || itr_primary_id == updates.end())
@@ -309,80 +296,21 @@ bool EniInfo::create(const Request& db_request)
 
     std::string local_id;
     bool tunn_term_allow = findLocalEp(local_id);
-    bool outbound_allow = false;
 
     /* Create Rules */
     rule_container_.emplace(piecewise_construct,
-                forward_as_tuple(rule_type_t::INBOUND),
-                forward_as_tuple(rule_type_t::INBOUND, *this));
-    rule_container_.emplace(piecewise_construct,
-                forward_as_tuple(rule_type_t::OUTBOUND),
-                forward_as_tuple(rule_type_t::OUTBOUND, *this));
+                forward_as_tuple(rule_type_t::NO_TUNNEL_TERM),
+                forward_as_tuple(rule_type_t::NO_TUNNEL_TERM, *this));
 
     if (tunn_term_allow)
     {
-        /* Create rules for tunnel termination if required */
+        /* Create rule for tunnel termination if required */
         rule_container_.emplace(piecewise_construct,
-                    forward_as_tuple(rule_type_t::INBOUND_TERM),
-                    forward_as_tuple(rule_type_t::INBOUND_TERM, *this));
-        rule_container_.emplace(piecewise_construct,
-                    forward_as_tuple(rule_type_t::OUTBOUND_TERM),
-                    forward_as_tuple(rule_type_t::OUTBOUND_TERM, *this));
+                    forward_as_tuple(rule_type_t::TUNNEL_TERM),
+                    forward_as_tuple(rule_type_t::TUNNEL_TERM, *this));
     }
 
-    /* Infer Direction to check MAC for outbound rules */
-    if (itr_out_mac_dir == updates.end())
-    {
-        outbound_mac_lookup_ = MATCH_INNER_SRC_MAC;
-    }
-    else
-    {
-        auto str = db_request.getAttrString(DashEniFwd::OUT_MAC_LOOKUP);
-        if (str == DashEniFwd::OUT_MAC_DIR)
-        {
-            outbound_mac_lookup_ = MATCH_INNER_DST_MAC;
-        }
-        else
-        {
-            outbound_mac_lookup_ = MATCH_INNER_SRC_MAC;
-        }
-    }
-
-    /* Infer tunnel_vni for the outbound rules */
-    if (itr_out_vni == updates.end())
-    {
-        if (ctx->findVnetVni(vnet_name_, outbound_vni_))
-        {
-            outbound_allow = true;
-        }
-        else
-        {
-            SWSS_LOG_ERROR("Invalid VNET: No VNI. Cannot install outbound rules: %s", toKey().c_str());
-        }
-    }
-    else
-    {
-        outbound_vni_ = db_request.getAttrUint(DashEniFwd::OUT_VNI);
-        outbound_allow = true;
-    }
-
-    fireRule(rule_type_t::INBOUND);
-
-    if (tunn_term_allow)
-    {
-        fireRule(rule_type_t::INBOUND_TERM);
-    }
-
-    if (outbound_allow)
-    {
-        fireRule(rule_type_t::OUTBOUND);
-    }
-
-    if (tunn_term_allow && outbound_allow)
-    {
-        fireRule(rule_type_t::OUTBOUND_TERM);
-    }
-
+    fireAllRules();
     return true;
 }
 
