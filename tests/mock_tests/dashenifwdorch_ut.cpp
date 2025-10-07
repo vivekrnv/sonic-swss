@@ -67,6 +67,8 @@ namespace dashenifwdorch_ut
                      {
                             { DashEniFwd::PA_V4, local_pav4 },
                             { DashEniFwd::STATE, "up" },
+                            { "gnmi_port", "50051" },
+                            { "local_port", "8080" },
                      }, SET_COMMAND);
 
                      dpuTable->set("local_down_dpu",

@@ -94,7 +94,7 @@ class DashEniFwdOrch : public Orch2, public Observer
 public:
     struct EniFwdRequest : public Request
     {
-        EniFwdRequest() : Request(eni_dash_fwd_desc, ':') {}
+        EniFwdRequest() : Request(eni_dash_fwd_desc, ':', true) {}
     };
     
     DashEniFwdOrch(swss::DBConnector*, swss::DBConnector*, const std::string&, NeighOrch* neigh_orch_);
@@ -170,15 +170,15 @@ public:
 
     struct DpuRequest : public Request
     {
-        DpuRequest() : Request(dpu_table_desc, '|') {}
+        DpuRequest() : Request(dpu_table_desc, '|', true) {}
     };
     struct RemoteDpuRequest : public Request
     {
-        RemoteDpuRequest() : Request(remote_dpu_table_desc, '|') {}
+        RemoteDpuRequest() : Request(remote_dpu_table_desc, '|', true) {}
     };
     struct VdpuRequest : public Request
     {
-        VdpuRequest() : Request(vdpu_table_desc, '|') {}
+        VdpuRequest() : Request(vdpu_table_desc, '|', true) {}
     };
 
     void populate(const swss::DBConnector*);
