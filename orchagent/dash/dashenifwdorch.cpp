@@ -12,8 +12,6 @@ DashEniFwdOrch::DashEniFwdOrch(DBConnector* cfgDb, DBConnector* applDb, const st
     : Orch2(applDb, tableName, request_), neighorch_(neighOrch)
 {
     SWSS_LOG_ENTER();
-    acl_table_type_ = make_unique<ProducerStateTable>(applDb, APP_ACL_TABLE_TYPE_TABLE_NAME);
-    acl_table_ = make_unique<ProducerStateTable>(applDb, APP_ACL_TABLE_TABLE_NAME);
     ctx = make_shared<EniFwdCtx>(cfgDb, applDb);
     if (neighorch_)
     {
@@ -75,49 +73,6 @@ void DashEniFwdOrch::handleNeighUpdate(const NeighborUpdate& update)
         }
         itr++;
     }
-}
-
-void DashEniFwdOrch::initAclTableCfg()
-{
-    vector<string> match_list = {
-                                  MATCH_DST_IP,
-                                  MATCH_INNER_DST_MAC,
-                                  MATCH_TUNNEL_TERM
-                                };
-
-    auto concat = [](const std::string &a, const std::string &b) { return a + "," + b; };
-
-    std::string matches = std::accumulate(
-        std::next(match_list.begin()), match_list.end(), match_list[0],
-        concat);
-
-    string bpoint_types = string(BIND_POINT_TYPE_PORT) + "," +  string(BIND_POINT_TYPE_PORTCHANNEL);
-
-    vector<FieldValueTuple> fv_ = {
-        { ACL_TABLE_TYPE_MATCHES, matches},
-        { ACL_TABLE_TYPE_ACTIONS, ACTION_REDIRECT_ACTION },
-        { ACL_TABLE_TYPE_BPOINT_TYPES, bpoint_types}
-    };
-
-    acl_table_type_->set(DashEniFwd::TABLE_TYPE, fv_);
-
-    auto ports = ctx->getBindPoints();
-    std::string ports_str;
-
-    if (!ports.empty())
-    {
-        ports_str = std::accumulate(std::next(ports.begin()), ports.end(), ports[0], concat);
-    }
-
-    /* Write ACL Table */
-    vector<FieldValueTuple> table_fv_ = {
-        { ACL_TABLE_DESCRIPTION, "Contains Rule for DASH ENI Based Forwarding"},
-        { ACL_TABLE_TYPE, DashEniFwd::TABLE_TYPE },
-        { ACL_TABLE_STAGE, STAGE_INGRESS },
-        { ACL_TABLE_PORTS, ports_str }
-    };
-
-    acl_table_->set(DashEniFwd::TABLE, table_fv_);
 }
 
 void DashEniFwdOrch::initLocalEndpoints()
@@ -183,11 +138,9 @@ void DashEniFwdOrch::lazyInit()
         1. DpuRegistry
         2. Other Orch ptrs
         3. Internal dpu-id mappings
-        4. Write ACL Table Cfg
     */
     ctx->initialize();
     ctx->populateDpuRegistry();
-    initAclTableCfg();
     initLocalEndpoints();
     ctx_initialized_ = true;
 }
@@ -447,7 +400,9 @@ EniFwdCtxBase::EniFwdCtxBase(DBConnector* cfgDb, DBConnector* applDb)
     cfg_db_ = make_unique<DBConnector>(*cfgDb);
     port_tbl_ = make_unique<Table>(cfgDb, CFG_PORT_TABLE_NAME);
     vip_tbl_ = make_unique<Table>(cfgDb, DashEniFwd::VIP_TABLE);
-    rule_table = make_unique<ProducerStateTable>(applDb, APP_ACL_RULE_TABLE_NAME);
+    rule_table_ = make_unique<ProducerStateTable>(applDb, APP_ACL_RULE_TABLE_NAME);
+    acl_table_type_ = make_unique<ProducerStateTable>(applDb, APP_ACL_TABLE_TYPE_TABLE_NAME);
+    acl_table_ = make_unique<ProducerStateTable>(applDb, APP_ACL_TABLE_TABLE_NAME);
     vip_inferred_ = false;
 }
 
@@ -659,4 +614,82 @@ bool EniFwdCtx::removeNextHopTunnel(string tunnel_name, IpAddress ip_addr)
                         (std::string)tunnel_name, ip_addr,
                         MacAddress(),
                         (uint32_t)0);
+}
+
+void EniFwdCtxBase::createAclRule(const std::string& rule, const std::vector<FieldValueTuple>& fv)
+{
+    if (acl_rule_count_ == 0)
+    {
+        addAclTable();
+    }
+    acl_rule_count_++;
+    SWSS_LOG_NOTICE("Creating ACL rule: %s, ENI Forwarding rules count: %u", rule.c_str(), acl_rule_count_);
+    rule_table_->set(rule, fv);
+}
+
+void EniFwdCtxBase::deleteAclRule(const std::string& rule)
+{
+    rule_table_->del(rule);
+    if (acl_rule_count_ > 0)
+    {
+        acl_rule_count_--;
+        SWSS_LOG_NOTICE("Deleted ACL rule: %s, ENI Forwarding rule count: %u", rule.c_str(), acl_rule_count_);
+        if (acl_rule_count_ == 0)
+        {
+            deleteAclTable();
+        }
+    }
+    else
+    {
+        SWSS_LOG_ERROR("Attempted to delete ACL rule %s but rule count is already 0", rule.c_str());
+    }
+}
+
+void EniFwdCtxBase::addAclTable()
+{
+    vector<string> match_list = {
+                                  MATCH_DST_IP,
+                                  MATCH_INNER_DST_MAC,
+                                  MATCH_TUNNEL_TERM
+                                };
+
+    auto concat = [](const std::string &a, const std::string &b) { return a + "," + b; };
+
+    std::string matches = std::accumulate(
+        std::next(match_list.begin()), match_list.end(), match_list[0],
+        concat);
+
+    string bpoint_types = string(BIND_POINT_TYPE_PORT) + "," +  string(BIND_POINT_TYPE_PORTCHANNEL);
+
+    vector<FieldValueTuple> fv_ = {
+        { ACL_TABLE_TYPE_MATCHES, matches},
+        { ACL_TABLE_TYPE_ACTIONS, ACTION_REDIRECT_ACTION },
+        { ACL_TABLE_TYPE_BPOINT_TYPES, bpoint_types}
+    };
+
+    acl_table_type_->set(DashEniFwd::TABLE_TYPE, fv_);
+
+    auto ports = getBindPoints();
+    std::string ports_str;
+
+    if (!ports.empty())
+    {
+        ports_str = std::accumulate(std::next(ports.begin()), ports.end(), ports[0], concat);
+    }
+
+    /* Write ACL Table */
+    vector<FieldValueTuple> table_fv_ = {
+        { ACL_TABLE_DESCRIPTION, "Contains Rule for DASH ENI Based Forwarding"},
+        { ACL_TABLE_TYPE, DashEniFwd::TABLE_TYPE },
+        { ACL_TABLE_STAGE, STAGE_INGRESS },
+        { ACL_TABLE_PORTS, ports_str }
+    };
+
+    acl_table_->set(DashEniFwd::TABLE, table_fv_);
+}
+
+void EniFwdCtxBase::deleteAclTable()
+{
+    acl_table_->del(DashEniFwd::TABLE);
+    acl_table_type_->del(DashEniFwd::TABLE_TYPE);
 }

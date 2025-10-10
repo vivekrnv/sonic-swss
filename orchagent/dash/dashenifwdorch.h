@@ -110,7 +110,6 @@ protected:
 
 private:
     void lazyInit();
-    void initAclTableCfg();
     void initLocalEndpoints();
     void handleNeighUpdate(const NeighborUpdate& update);
     void handleEniDpuMapping(const std::string& id, MacAddress mac, bool add = true);
@@ -123,8 +122,6 @@ private:
 
     bool ctx_initialized_ = false;
     shared_ptr<EniFwdCtxBase> ctx;
-    unique_ptr<swss::ProducerStateTable> acl_table_;
-    unique_ptr<swss::ProducerStateTable> acl_table_type_;
     NeighOrch* neighorch_;
 };
 
@@ -336,6 +333,9 @@ public:
     bool handleTunnelNH(const std::string&, swss::IpAddress, bool);
     swss::IpPrefix getVip();
 
+    void createAclRule(const std::string&, const std::vector<FieldValueTuple>&);
+    void deleteAclRule(const std::string&);
+
     virtual void initialize() = 0;
     /* API's that call other orchagents */
     virtual std::map<std::string, Port>& getAllPorts() = 0;
@@ -347,10 +347,13 @@ public:
     virtual bool removeNextHopTunnel(string, IpAddress) = 0;
 
     DpuRegistry dpu_info;
-    unique_ptr<swss::ProducerStateTable> rule_table;
 
 protected:
     std::set<std::string> findInternalPorts();
+    void addAclTable();
+    void deleteAclTable();
+    /* Reference counting for ACL rules */
+    uint32_t acl_rule_count_ = 0;
 
     /* RemoteNh Key -> {ref_count, sai oid} */
     std::map<std::string, std::pair<uint32_t, sai_object_id_t>> remote_nh_map_;
@@ -360,6 +363,9 @@ protected:
     unique_ptr<swss::Table> port_tbl_;
     unique_ptr<swss::Table> vip_tbl_;
     unique_ptr<swss::DBConnector> cfg_db_;
+    unique_ptr<swss::ProducerStateTable> rule_table_;
+    unique_ptr<swss::ProducerStateTable> acl_table_;
+    unique_ptr<swss::ProducerStateTable> acl_table_type_;
 
     /* Only one vip is expected per T1 cluster */
     swss::IpPrefix vip; 

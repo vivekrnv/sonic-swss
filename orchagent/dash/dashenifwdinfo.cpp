@@ -180,9 +180,8 @@ void EniAclRule::fire(EniInfo& eni)
             Delete the complete rule before updating it, 
             ACLOrch Doesn't support incremental updates 
         */
-        ctx->rule_table->del(key);
+        ctx->deleteAclRule(key);
         setState(rule_state_t::UNINSTALLED);
-        SWSS_LOG_NOTICE("EniFwd ACL Rule %s deleted", key.c_str());
     }
 
     if (nh_->getStatus() != endpoint_status_t::RESOLVED)
@@ -204,9 +203,8 @@ void EniAclRule::fire(EniInfo& eni)
         fv_.push_back({MATCH_TUNNEL_TERM, "true"});
     }
     
-    ctx->rule_table->set(key, fv_);
+    ctx->createAclRule(key, fv_);
     setState(INSTALLED);
-    SWSS_LOG_NOTICE("EniFwd ACL Rule %s installed", key.c_str());
 }
 
 string EniAclRule::getMacMatchDirection(EniInfo& eni)
@@ -220,7 +218,7 @@ void EniAclRule::destroy(EniInfo& eni)
     {
         auto key = getKey();
         auto& ctx = eni.getCtx();
-        ctx->rule_table->del(key);
+        ctx->deleteAclRule(key);
         if (nh_ != nullptr)
         {
             nh_->destroy(eni);

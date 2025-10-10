@@ -58,6 +58,7 @@ namespace dashenifwdorch_ut
               string remote_npuv4 = "20.0.0.2";
               string remote_2_npuv4 = "20.0.0.3";
 
+              std::map<std::string, Port> allPorts;
               int BASE_PRIORITY = 9996;
 
               void populateDpuTable()
@@ -151,6 +152,19 @@ namespace dashenifwdorch_ut
                      << key << ": Still Exist";
               }
 
+              void checkNoKeyExists(Table* m_table, string expected_key)
+              {
+                     std::string val;
+                     std::vector<std::string> keys;
+                     m_table->getKeys(keys);
+                     for (auto& key : keys) {
+                            if (key == expected_key)
+                            {
+                                   EXPECT_FALSE(true) << expected_key << ": Still Exist";
+                            }
+                     }
+              }
+
               void SetUp() override {  
                      testing_db::reset();                   
                      cfgDb = make_unique<DBConnector>("CONFIG_DB", 0);
@@ -170,6 +184,17 @@ namespace dashenifwdorch_ut
 
                      /* Clear the default context and Patch with the Mock */
                      ctx = make_shared<MockEniFwdCtx>(cfgDb.get(), applDb.get());
+                     /* Create a set of ports */
+                     allPorts["Ethernet0"] = Port("Ethernet0", Port::PHY);
+                     allPorts["Ethernet4"] = Port("Ethernet4", Port::PHY);
+                     allPorts["Ethernet8"] = Port("Ethernet8", Port::PHY);
+                     allPorts["Ethernet16"] = Port("Ethernet16", Port::PHY);
+                     allPorts["PortChannel1011"] = Port("PortChannel1012", Port::LAG);
+                     allPorts["PortChannel1012"] = Port("Ethernet16", Port::LAG);
+                     allPorts["PortChannel1011"].m_members.insert("Ethernet8");
+                     allPorts["PortChannel1012"].m_members.insert("Ethernet16");
+                     ON_CALL(*ctx, getAllPorts()).WillByDefault(ReturnRef(allPorts));
+
                      eniOrch->ctx.reset();
                      eniOrch->ctx = ctx;
                      eniOrch->ctx->populateDpuRegistry();
@@ -501,22 +526,10 @@ namespace dashenifwdorch_ut
        }
 
        /* 
-              Test ACL Table and Table Type config
+              Test ACL Table and Table Type config with reference counting
        */
        TEST_F(DashEniFwdOrchTest, TestAclTableConfig)
        {
-              /* Create a set of ports */
-              std::map<std::string, Port> allPorts;
-              allPorts["Ethernet0"] = Port("Ethernet0", Port::PHY);
-              allPorts["Ethernet4"] = Port("Ethernet4", Port::PHY);
-              allPorts["Ethernet8"] = Port("Ethernet8", Port::PHY);
-              allPorts["Ethernet16"] = Port("Ethernet16", Port::PHY);
-              allPorts["PortChannel1011"] = Port("PortChannel1012", Port::LAG);
-              allPorts["PortChannel1012"] = Port("Ethernet16", Port::LAG);
-              allPorts["PortChannel1011"].m_members.insert("Ethernet8");
-              allPorts["PortChannel1012"].m_members.insert("Ethernet16");
-              EXPECT_CALL(*ctx, getAllPorts()).WillOnce(ReturnRef(allPorts));
-
               Table aclTableType(applDb.get(), APP_ACL_TABLE_TYPE_TABLE_NAME);
               Table aclTable(applDb.get(), APP_ACL_TABLE_TABLE_NAME);
               Table portTable(cfgDb.get(), CFG_PORT_TABLE_NAME);
@@ -532,8 +545,20 @@ namespace dashenifwdorch_ut
                      { PORT_ROLE, PORT_ROLE_DPC }
               }, SET_COMMAND);
 
-              eniOrch->initAclTableCfg();
+              // Initially no ACL table should exist
+              checkNoKeyExists(&aclTable, "ENI");
+              checkNoKeyExists(&aclTableType, "ENI_REDIRECT");
 
+              // Create first ACL rule - should create the table
+              vector<FieldValueTuple> fv1 = {
+                     { RULE_PRIORITY, "9996" },
+                     { MATCH_DST_IP, test_vip },
+                     { MATCH_INNER_DST_MAC, test_mac },
+                     { ACTION_REDIRECT_ACTION, local_pav4 }
+              };
+              eniOrch->ctx->createAclRule("ENI:rule1", fv1);
+
+              // Verify ACL table and table type were created after first rule
               checkKFV(&aclTableType, "ENI_REDIRECT", {
                      { ACL_TABLE_TYPE_MATCHES, "DST_IP,INNER_DST_MAC,TUNNEL_TERM" },
                      { ACL_TABLE_TYPE_ACTIONS, "REDIRECT_ACTION" },
@@ -545,6 +570,46 @@ namespace dashenifwdorch_ut
                      { ACL_TABLE_STAGE, STAGE_INGRESS },
                      { ACL_TABLE_PORTS, "Ethernet0,PortChannel1011,PortChannel1012" }
               });
+
+              // Create second and third ACL rules - table should still exist
+              vector<FieldValueTuple> fv2 = {
+                     { RULE_PRIORITY, "9997" },
+                     { MATCH_DST_IP, test_vip },
+                     { MATCH_INNER_DST_MAC, test_mac2 },
+                     { ACTION_REDIRECT_ACTION, local_pav4 }
+              };
+              eniOrch->ctx->createAclRule("ENI:rule2", fv2);
+
+              vector<FieldValueTuple> fv3 = {
+                     { RULE_PRIORITY, "9998" },
+                     { MATCH_DST_IP, test_vip },
+                     { MATCH_INNER_DST_MAC, test_mac },
+                     { ACTION_REDIRECT_ACTION, remote_pav4 }
+              };
+              eniOrch->ctx->createAclRule("ENI:rule3", fv3);
+
+              // Verify rule count is 3
+              EXPECT_EQ(eniOrch->ctx->acl_rule_count_, 3);
+
+              // Delete first two rules - table should still exist
+              eniOrch->ctx->deleteAclRule("ENI:rule1");
+              EXPECT_EQ(eniOrch->ctx->acl_rule_count_, 2);
+
+              eniOrch->ctx->deleteAclRule("ENI:rule2");
+              EXPECT_EQ(eniOrch->ctx->acl_rule_count_, 1);
+
+              // Table should still exist
+              checkKFV(&aclTable, "ENI", {
+                     { ACL_TABLE_TYPE, "ENI_REDIRECT" }
+              });
+
+              // Delete last rule - table should be removed
+              eniOrch->ctx->deleteAclRule("ENI:rule3");
+              EXPECT_EQ(eniOrch->ctx->acl_rule_count_, 0);
+
+              // Verify ACL table and table type were deleted after last rule
+              checkNoKeyExists(&aclTable, "ENI");
+              checkNoKeyExists(&aclTableType, "ENI_REDIRECT");
        }
 }
 
