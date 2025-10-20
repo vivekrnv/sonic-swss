@@ -623,7 +623,7 @@ void EniFwdCtxBase::createAclRule(const std::string& rule, const std::vector<Fie
         addAclTable();
     }
     acl_rule_count_++;
-    SWSS_LOG_NOTICE("Creating ACL rule: %s, ENI Forwarding rules count: %u", rule.c_str(), acl_rule_count_);
+    SWSS_LOG_INFO("Creating ACL rule: %s, ENI Forwarding rules count: %u", rule.c_str(), acl_rule_count_);
     rule_table_->set(rule, fv);
 }
 
@@ -633,7 +633,7 @@ void EniFwdCtxBase::deleteAclRule(const std::string& rule)
     if (acl_rule_count_ > 0)
     {
         acl_rule_count_--;
-        SWSS_LOG_NOTICE("Deleted ACL rule: %s, ENI Forwarding rule count: %u", rule.c_str(), acl_rule_count_);
+        SWSS_LOG_INFO("Deleted ACL rule: %s, ENI Forwarding rule count: %u", rule.c_str(), acl_rule_count_);
         if (acl_rule_count_ == 0)
         {
             deleteAclTable();
