@@ -9,6 +9,7 @@
 
 #include "converter.h"
 #include "dashorch.h"
+#include "dashhaorch.h"
 #include "macaddress.h"
 #include "orch.h"
 #include "sai.h"
@@ -70,6 +71,12 @@ DashOrch::DashOrch(DBConnector *db, vector<string> &tableName, DBConnector *app_
     dash_qos_result_table_ = make_unique<Table>(app_state_db, APP_DASH_QOS_TABLE_NAME);
     dash_appliance_result_table_ = make_unique<Table>(app_state_db, APP_DASH_APPLIANCE_TABLE_NAME);
     dash_routing_type_result_table_ = make_unique<Table>(app_state_db, APP_DASH_ROUTING_TYPE_TABLE_NAME);
+}
+
+void DashOrch::setDashHaOrch(DashHaOrch *dash_ha_orch)
+{
+    SWSS_LOG_ENTER();
+    m_dash_ha_orch = dash_ha_orch;
 }
 
 bool DashOrch::getRouteTypeActions(dash::route_type::RoutingType routing_type, dash::route_type::RouteType& route_type)
@@ -535,14 +542,14 @@ bool DashOrch::addEniObject(const string& eni, EniEntry& entry)
     }
 
     DashMeterOrch *dash_meter_orch = gDirectory.get<DashMeterOrch*>();
-    const string &v4_meter_policy  = entry.metadata.has_v4_meter_policy_id() ? 
+    const string &v4_meter_policy  = entry.metadata.has_v4_meter_policy_id() ?
                                      entry.metadata.v4_meter_policy_id() : "";
-    const string &v6_meter_policy  = entry.metadata.has_v6_meter_policy_id() ? 
+    const string &v6_meter_policy  = entry.metadata.has_v6_meter_policy_id() ?
                                      entry.metadata.v6_meter_policy_id() : "";
 
     if (!v4_meter_policy.empty())
     {
-        sai_object_id_t meter_policy_oid = dash_meter_orch->getMeterPolicyOid(v4_meter_policy);    
+        sai_object_id_t meter_policy_oid = dash_meter_orch->getMeterPolicyOid(v4_meter_policy);
         if (meter_policy_oid == SAI_NULL_OBJECT_ID)
         {
             SWSS_LOG_INFO("Retry as v4 meter_policy %s not found", v4_meter_policy.c_str());
@@ -551,7 +558,7 @@ bool DashOrch::addEniObject(const string& eni, EniEntry& entry)
     }
     if (!v6_meter_policy.empty())
     {
-        sai_object_id_t meter_policy_oid = dash_meter_orch->getMeterPolicyOid(v6_meter_policy);    
+        sai_object_id_t meter_policy_oid = dash_meter_orch->getMeterPolicyOid(v6_meter_policy);
         if (meter_policy_oid == SAI_NULL_OBJECT_ID)
         {
             SWSS_LOG_INFO("Retry as v6 meter_policy %s not found", v6_meter_policy.c_str());
@@ -620,15 +627,52 @@ bool DashOrch::addEniObject(const string& eni, EniEntry& entry)
     if (!v4_meter_policy.empty())
     {
         eni_attr.id = SAI_ENI_ATTR_V4_METER_POLICY_ID;
-        eni_attr.value.oid = dash_meter_orch->getMeterPolicyOid(v4_meter_policy);    
+        eni_attr.value.oid = dash_meter_orch->getMeterPolicyOid(v4_meter_policy);
         eni_attrs.push_back(eni_attr);
     }
 
     if (!v6_meter_policy.empty())
     {
         eni_attr.id = SAI_ENI_ATTR_V6_METER_POLICY_ID;
-        eni_attr.value.oid = dash_meter_orch->getMeterPolicyOid(v6_meter_policy);    
+        eni_attr.value.oid = dash_meter_orch->getMeterPolicyOid(v6_meter_policy);
         eni_attrs.push_back(eni_attr);
+    }
+
+    // Set HA Scope ID if DashHaOrch is available and has HA scopes configured
+    if (m_dash_ha_orch != nullptr)
+    {
+        HaScopeEntry ha_scope_entry = m_dash_ha_orch->getHaScopeForEni(eni);
+        if (ha_scope_entry.ha_scope_id != SAI_NULL_OBJECT_ID)
+        {
+            eni_attr.id = SAI_ENI_ATTR_HA_SCOPE_ID;
+            eni_attr.value.oid = ha_scope_entry.ha_scope_id;
+            eni_attrs.push_back(eni_attr);
+            SWSS_LOG_INFO("Setting HA Scope ID %" PRIx64 " for ENI %s", ha_scope_entry.ha_scope_id, eni.c_str());
+
+            // Set HA flow owner based on HA role
+            eni_attr.id = SAI_ENI_ATTR_IS_HA_FLOW_OWNER;
+            if (ha_scope_entry.metadata.ha_role() == dash::types::HA_ROLE_ACTIVE || ha_scope_entry.metadata.ha_role() == dash::types::HA_ROLE_STANDALONE)
+            {
+                eni_attr.value.booldata = true;
+                SWSS_LOG_INFO("Setting HA flow owner to true (ACTIVE) for ENI %s", eni.c_str());
+            }
+            else if (ha_scope_entry.metadata.ha_role() == dash::types::HA_ROLE_STANDBY)
+            {
+                eni_attr.value.booldata = false;
+                SWSS_LOG_INFO("Setting HA flow owner to false (STANDBY) for ENI %s", eni.c_str());
+            }
+            else
+            {
+                // For other roles (DEAD, SWITCHING_TO_ACTIVE), default to false
+                eni_attr.value.booldata = false;
+                SWSS_LOG_INFO("Setting HA flow owner to false (role: %s) for ENI %s", dash::types::HaRole_Name(ha_scope_entry.metadata.ha_role()).c_str(), eni.c_str());
+            }
+            eni_attrs.push_back(eni_attr);
+        }
+        else
+        {
+            SWSS_LOG_INFO("No HA Scope ID set for ENI %s", eni.c_str());
+        }
     }
 
     if (entry.metadata.has_eni_mode()) {
@@ -819,9 +863,9 @@ bool DashOrch::removeEniObject(const string& eni)
         }
     }
 
-    const string &v4_meter_policy  = entry.metadata.has_v4_meter_policy_id() ? 
+    const string &v4_meter_policy  = entry.metadata.has_v4_meter_policy_id() ?
                                      entry.metadata.v4_meter_policy_id() : "";
-    const string &v6_meter_policy  = entry.metadata.has_v6_meter_policy_id() ? 
+    const string &v6_meter_policy  = entry.metadata.has_v6_meter_policy_id() ?
                                      entry.metadata.v6_meter_policy_id() : "";
 
     if (!v4_meter_policy.empty())
@@ -1303,6 +1347,54 @@ void DashOrch::removeEniMapEntry(sai_object_id_t oid, const string &name)
 
     m_eni_name_table->hdel("", name);
     SWSS_LOG_INFO("Removing ENI map entry for %s, id: %s", name.c_str(), sai_serialize_object_id(oid).c_str());
+}
+
+void DashOrch::addEniToFC(sai_object_id_t oid, const string &name)
+{
+    if (!m_eni_fc_status)
+    {
+       return ;
+    }
+    auto was_empty = m_eni_stat_work_queue.empty();
+    m_eni_stat_work_queue[oid] = name;
+    if (was_empty)
+    {
+        m_fc_update_timer->start();
+    }
+}
+
+void DashOrch::doTask(SelectableTimer &timer)
+{
+    SWSS_LOG_ENTER();
+
+    if (!m_eni_fc_status)
+    {
+        m_fc_update_timer->stop();
+        return ;
+    }
+
+    for (auto it = m_eni_stat_work_queue.begin(); it != m_eni_stat_work_queue.end(); )
+    {
+        string value;
+        const auto id = sai_serialize_object_id(it->first);
+
+        if (!gTraditionalFlexCounter || m_vid_to_rid_table->hget("", id, value))
+        {
+            SWSS_LOG_INFO("Registering FC for ENI: %s, id %s", it->second.c_str(), id.c_str());
+
+            m_eni_stat_manager.setCounterIdList(it->first, CounterType::ENI, m_counter_stats);
+            it = m_eni_stat_work_queue.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+
+    if (m_eni_stat_work_queue.empty())
+    {
+        m_fc_update_timer->stop();
+    }
 }
 
 dash::types::IpAddress DashOrch::getApplianceVip()
