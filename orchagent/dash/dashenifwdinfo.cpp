@@ -49,25 +49,24 @@ void RemoteEniNH::resolve(EniInfo& eni)
         return ;
     }
 
-    if (ctx->handleTunnelNH(tunnel_name_, endpoint_, true))
+    uint64_t vnet_vni;
+    if (!ctx->findVnetVni(vnet, vnet_vni))
     {
-        setStatus(endpoint_status_t::RESOLVED);
-    }
-    else
-    {
+        SWSS_LOG_ERROR("Couldn't find VNI for Vnet %s", vnet.c_str());
         setStatus(endpoint_status_t::UNRESOLVED);
+        return ;
     }
-}
 
-void RemoteEniNH::destroy(EniInfo& eni)
-{
-    auto& ctx = eni.getCtx();
-    ctx->handleTunnelNH(tunnel_name_, endpoint_, false);
+    vni_ = std::to_string(vnet_vni);
+
+    /* Note: AclOrch already has logic to create / delete Tunnel NH, no need to create here */
+    setStatus(endpoint_status_t::RESOLVED);
 }
 
 string RemoteEniNH::getRedirectVal() 
 { 
-    return endpoint_.to_string() + "@" + tunnel_name_; 
+    /* Format Expected by AclOrch: endpoint_ip@tunnel_name[,vni][,mac] */
+    return endpoint_.to_string() + "@" + tunnel_name_ + ',' + vni_;
 }
 
 void EniAclRule::setKey(EniInfo& eni)

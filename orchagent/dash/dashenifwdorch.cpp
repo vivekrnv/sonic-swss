@@ -489,43 +489,6 @@ string EniFwdCtxBase::getNbrAlias(const swss::IpAddress& nh_ip)
     return alias;
 }
 
-bool EniFwdCtxBase::handleTunnelNH(const std::string& tunnel_name, swss::IpAddress endpoint, bool create)
-{
-    SWSS_LOG_ENTER();
-
-    auto nh_key = endpoint.to_string() + "@" + tunnel_name;
-    auto nh_itr = remote_nh_map_.find(nh_key);
-
-    /* Delete Tunnel NH if ref_count = 0 */
-    if (!create)
-    {
-        if (nh_itr != remote_nh_map_.end())
-        {
-            if(!--nh_itr->second.first)
-            {
-                remote_nh_map_.erase(nh_key);
-                return removeNextHopTunnel(tunnel_name, endpoint);
-            }
-        }
-        return true;
-    }
-
-    if (nh_itr == remote_nh_map_.end())
-    {
-        /* Create a tunnel NH */
-        auto nh_oid = createNextHopTunnel(tunnel_name, endpoint);
-        if (nh_oid == SAI_NULL_OBJECT_ID)
-        {
-            SWSS_LOG_ERROR("Failed to create Tunnel Next Hop, name: %s. endpoint %s", tunnel_name.c_str(),
-                            endpoint.to_string().c_str());
-        }
-        remote_nh_map_.insert(make_pair(nh_key, make_pair(0, nh_oid)));
-        nh_itr = remote_nh_map_.find(nh_key);
-    }
-    nh_itr->second.first++; /* Increase the ref count, indicates number of rules using referencing this */
-    return true;
-}
-
 IpPrefix EniFwdCtxBase::getVip()
 {
     SWSS_LOG_ENTER();
@@ -583,6 +546,16 @@ string EniFwdCtx::getRouterIntfsAlias(const IpAddress &ip, const string &vrf_nam
     return intfsorch_->getRouterIntfsAlias(ip, vrf_name);
 }
 
+bool EniFwdCtx::findVnetVni(const string& vnet_name, uint64_t& vni)
+{
+    if (vnetorch_->isVnetExists(vnet_name))
+    {
+        vni = vnetorch_->getTypePtr<VNetObject>(vnet_name)->getVni();
+        return true;
+    }
+    return false;
+}
+
 bool EniFwdCtx::findVnetTunnel(const string& vnet_name, string& tunnel) 
 {
     if (vnetorch_->isVnetExists(vnet_name))
@@ -596,24 +569,6 @@ bool EniFwdCtx::findVnetTunnel(const string& vnet_name, string& tunnel)
 std::map<string, Port>& EniFwdCtx::getAllPorts() 
 {
     return portsorch_->getAllPorts();
-}
-
-sai_object_id_t EniFwdCtx::createNextHopTunnel(string tunnel_name, IpAddress ip_addr)
-{
-    return safetyWrapper(vxlanorch_, &VxlanTunnelOrch::createNextHopTunnel,
-                        (sai_object_id_t)SAI_NULL_OBJECT_ID,
-                        (string)tunnel_name, ip_addr,
-                        MacAddress(),
-                        (uint32_t)0);
-}
-
-bool EniFwdCtx::removeNextHopTunnel(string tunnel_name, IpAddress ip_addr)
-{
-    return safetyWrapper(vxlanorch_, &VxlanTunnelOrch::removeNextHopTunnel,
-                        false,
-                        (std::string)tunnel_name, ip_addr,
-                        MacAddress(),
-                        (uint32_t)0);
 }
 
 void EniFwdCtxBase::createAclRule(const std::string& rule, const std::vector<FieldValueTuple>& fv)

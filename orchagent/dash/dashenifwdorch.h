@@ -214,7 +214,7 @@ public:
     swss::IpAddress getEp() {return endpoint_;}
 
     virtual void resolve(EniInfo& eni) = 0;
-    virtual void destroy(EniInfo& eni) = 0;
+    virtual void destroy(EniInfo& eni) {};
     virtual string getRedirectVal() = 0;
 
 protected:
@@ -233,7 +233,6 @@ public:
         setType(dpu_type_t::LOCAL);
     }
     void resolve(EniInfo& eni) override;
-    void destroy(EniInfo& eni) {}
     string getRedirectVal() override;
 };
 
@@ -248,11 +247,11 @@ public:
         setType(dpu_type_t::CLUSTER);
     }
     void resolve(EniInfo& eni) override;
-    void destroy(EniInfo& eni) override;
     string getRedirectVal() override;
 
 private:
     string tunnel_name_;
+    string vni_;
 };
 
 
@@ -330,7 +329,6 @@ public:
     void populateDpuRegistry();
     std::vector<std::string> getBindPoints();
     std::string getNbrAlias(const swss::IpAddress& ip);
-    bool handleTunnelNH(const std::string&, swss::IpAddress, bool);
     swss::IpPrefix getVip();
 
     void createAclRule(const std::string&, const std::vector<FieldValueTuple>&);
@@ -342,9 +340,8 @@ public:
     virtual bool isNeighborResolved(const NextHopKey&) = 0;
     virtual void resolveNeighbor(const NeighborEntry &) = 0;
     virtual string getRouterIntfsAlias(const IpAddress &, const string & = "") = 0;
+    virtual bool findVnetVni(const std::string&, uint64_t& ) = 0;
     virtual bool findVnetTunnel(const std::string&, string&) = 0;
-    virtual sai_object_id_t createNextHopTunnel(string, IpAddress) = 0;
-    virtual bool removeNextHopTunnel(string, IpAddress) = 0;
 
     DpuRegistry dpu_info;
 
@@ -355,8 +352,6 @@ protected:
     /* Reference counting for ACL rules */
     uint32_t acl_rule_count_ = 0;
 
-    /* RemoteNh Key -> {ref_count, sai oid} */
-    std::map<std::string, std::pair<uint32_t, sai_object_id_t>> remote_nh_map_;
     /* Mapping between DPU Nbr and Alias */
     std::map<swss::IpAddress, std::string> nh_alias_map_;
 
@@ -373,25 +368,6 @@ protected:
 };
 
 
-/*
-    Wrapper on API's that are throwable
-*/
-template <typename C, typename R, typename... Args>
-R safetyWrapper(C* ptr, R (C::*func)(Args...), R defaultValue, Args&&... args)
-{
-    SWSS_LOG_ENTER();
-    try
-    {
-        return (ptr->*func)(std::forward<Args>(args)...);
-    }
-    catch (const std::exception &e)
-    {
-        SWSS_LOG_ERROR("Exception thrown.. %s", e.what());
-        return defaultValue;
-    }
-}
-
-
 /* 
     Implements API's to access other orchagents
 */
@@ -405,10 +381,9 @@ public:
     bool isNeighborResolved(const NextHopKey&) override;
     void resolveNeighbor(const NeighborEntry&) override;
     std::string getRouterIntfsAlias(const IpAddress &, const string & = "") override;
+    bool findVnetVni(const std::string&, uint64_t&) override;
     bool findVnetTunnel(const std::string&, string&) override;
     std::map<std::string, Port>& getAllPorts() override;
-    virtual sai_object_id_t createNextHopTunnel(string, IpAddress) override;
-    virtual bool removeNextHopTunnel(string, IpAddress) override;
 
 private:
     PortsOrch* portsorch_;

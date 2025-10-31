@@ -21,9 +21,8 @@ namespace dashenifwdorch_ut
               MOCK_METHOD(std::string, getRouterIntfsAlias, (const swss::IpAddress&, const string& vrf), (override));
               MOCK_METHOD(bool, isNeighborResolved, (const NextHopKey&), (override));
               MOCK_METHOD(void, resolveNeighbor, (const NextHopKey&), (override));
+              MOCK_METHOD(bool, findVnetVni, (const std::string&, uint64_t&), (override));
               MOCK_METHOD(bool, findVnetTunnel, (const std::string&, std::string&), (override));
-              MOCK_METHOD(sai_object_id_t, createNextHopTunnel, (std::string, IpAddress), (override));
-              MOCK_METHOD(bool, removeNextHopTunnel, (std::string, IpAddress), (override));
               MOCK_METHOD((std::map<std::string, Port>&), getAllPorts, (), (override));
        };
 
@@ -59,6 +58,7 @@ namespace dashenifwdorch_ut
               string remote_2_npuv4 = "20.0.0.3";
 
               std::map<std::string, Port> allPorts;
+              uint64_t test_vni = 1000;
               int BASE_PRIORITY = 9996;
 
               void populateDpuTable()
@@ -351,8 +351,7 @@ namespace dashenifwdorch_ut
               Remote Endpoint
        */
        TEST_F(DashEniFwdOrchTest, RemoteNeighbor)
-       {      
-              IpAddress remote_npuv4_ip = IpAddress(remote_npuv4);
+       {
               EXPECT_CALL(*ctx, getRouterIntfsAlias(_, _)).WillOnce(Return(alias_dpu));
               /* calls to neighOrch expected for tunn termination entries */
               EXPECT_CALL(*ctx, isNeighborResolved(_)).Times(2).WillRepeatedly(Return(true));
@@ -363,8 +362,11 @@ namespace dashenifwdorch_ut
                      Return(true)
               ));
 
-              EXPECT_CALL(*ctx, createNextHopTunnel(tunnel_name, remote_npuv4_ip)).Times(1)
-                     .WillRepeatedly(Return(0x400000000064d)); // Only once since same NH object will be re-used
+              EXPECT_CALL(*ctx, findVnetVni(vnet_name, _)).Times(2) // Called once per ENI
+                     .WillRepeatedly(DoAll(
+                     SetArgReferee<1>(test_vni),
+                     Return(true)
+              ));
 
               doDashEniFwdTableTask(applDb.get(), 
                      deque<KeyOpFieldsValuesTuple>(
@@ -391,15 +393,8 @@ namespace dashenifwdorch_ut
 
               /* Check ACL Rules  */
               checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key, {
-                            { ACTION_REDIRECT_ACTION, remote_npuv4 + "@" + tunnel_name }
+                            { ACTION_REDIRECT_ACTION, remote_npuv4 + "@" + tunnel_name + "," + to_string(test_vni) }
               });
-
-              /* Check Ref count */
-              ASSERT_TRUE(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name) != ctx->remote_nh_map_.end());
-              EXPECT_EQ(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name)->second.first, 2);
-              EXPECT_EQ(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name)->second.second, 0x400000000064d);
-
-              EXPECT_CALL(*ctx, removeNextHopTunnel(tunnel_name, remote_npuv4_ip)).WillOnce(Return(true));
 
               /* Delete all ENI's */
               doDashEniFwdTableTask(applDb.get(),
@@ -422,8 +417,6 @@ namespace dashenifwdorch_ut
               checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac2_key + "_TERM");
               checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key);
               checkRuleUninstalled("ENI:" + vnet_name + "_" + test_mac_key+ "_TERM");
-              /* Check the tunnel is removed */
-              ASSERT_TRUE(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name) == ctx->remote_nh_map_.end());
        }
 
        /* 
@@ -431,7 +424,6 @@ namespace dashenifwdorch_ut
        */
        TEST_F(DashEniFwdOrchTest, RemoteNeighbor_SwitchToLocal)
        {
-              IpAddress remote_npuv4_ip = IpAddress(remote_npuv4);
               EXPECT_CALL(*ctx, getRouterIntfsAlias(_, _)).WillOnce(Return(alias_dpu));
               /* 1 calls made for tunnel termination rules */
               EXPECT_CALL(*ctx, isNeighborResolved(_)).Times(1).WillRepeatedly(Return(true));
@@ -440,8 +432,11 @@ namespace dashenifwdorch_ut
                      SetArgReferee<1>(tunnel_name),
                      Return(true)
               ));
-              EXPECT_CALL(*ctx, createNextHopTunnel(tunnel_name, remote_npuv4_ip)).Times(1)
-                     .WillRepeatedly(Return(0x400000000064d)); // Only once since same NH object will be re-used
+              EXPECT_CALL(*ctx, findVnetVni(vnet_name, _)).Times(1) // Called once per ENI
+                     .WillRepeatedly(DoAll(
+                     SetArgReferee<1>(test_vni),
+                     Return(true)
+              ));
 
               doDashEniFwdTableTask(applDb.get(), 
                      deque<KeyOpFieldsValuesTuple>(
@@ -459,15 +454,11 @@ namespace dashenifwdorch_ut
               );
 
               checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key, {
-                            { ACTION_REDIRECT_ACTION, remote_npuv4 + "@" + tunnel_name }
+                            { ACTION_REDIRECT_ACTION, remote_npuv4 + "@" + tunnel_name + ',' + to_string(test_vni) }
               });
-              ASSERT_TRUE(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name) != ctx->remote_nh_map_.end());
-              EXPECT_EQ(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name)->second.first, 1);
-              EXPECT_EQ(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name)->second.second, 0x400000000064d);
 
               /* 1 calls will be made for non tunnel termination rules after primary switch */
               EXPECT_CALL(*ctx, isNeighborResolved(_)).Times(1).WillRepeatedly(Return(true));
-              EXPECT_CALL(*ctx, removeNextHopTunnel(tunnel_name, remote_npuv4_ip)).WillOnce(Return(true));
 
               doDashEniFwdTableTask(applDb.get(), 
                      deque<KeyOpFieldsValuesTuple>(
@@ -482,8 +473,6 @@ namespace dashenifwdorch_ut
                             }
                      )
               );
-              /* Check the tunnel is removed */
-              ASSERT_TRUE(ctx->remote_nh_map_.find(remote_npuv4 + "@" + tunnel_name) == ctx->remote_nh_map_.end());
        }
 
        /* 
@@ -491,16 +480,17 @@ namespace dashenifwdorch_ut
               No Tunnel Termination Rules expected 
        */
        TEST_F(DashEniFwdOrchTest, RemoteNeighbor_NoTunnelTerm)
-       {      
-              IpAddress remote_npuv4_ip = IpAddress(remote_2_npuv4);
+       {
               EXPECT_CALL(*ctx, findVnetTunnel(vnet_name, _)).Times(1) // Only 1 rule is created
                      .WillRepeatedly(DoAll(
                      SetArgReferee<1>(tunnel_name),
                      Return(true)
               ));
-
-              EXPECT_CALL(*ctx, createNextHopTunnel(tunnel_name, remote_npuv4_ip)).Times(1)
-                     .WillRepeatedly(Return(0x400000000064d)); // Only once since same NH object will be re-used
+              EXPECT_CALL(*ctx, findVnetVni(vnet_name, _)).Times(1) // Called once per ENI
+                     .WillRepeatedly(DoAll(
+                     SetArgReferee<1>(test_vni),
+                     Return(true)
+              ));
 
               doDashEniFwdTableTask(applDb.get(), 
                      deque<KeyOpFieldsValuesTuple>(
@@ -518,7 +508,7 @@ namespace dashenifwdorch_ut
               );
 
               checkKFV(aclRuleTable.get(), "ENI:" + vnet_name + "_" + test_mac_key, {
-                            { ACTION_REDIRECT_ACTION, remote_2_npuv4 + "@" + tunnel_name }
+                            { ACTION_REDIRECT_ACTION, remote_2_npuv4 + "@" + tunnel_name + ',' + to_string(test_vni) }
               });
 
               /* Tunnel termination rules are not installed */
@@ -625,10 +615,10 @@ namespace mock_orch_test
               ASSERT_NO_THROW(ctx.resolveNeighbor(nh));
               ASSERT_NO_THROW(ctx.getRouterIntfsAlias(IpAddress("10.0.0.1")));
 
+              uint64_t vni;
+              ASSERT_NO_THROW(ctx.findVnetVni("Vnet_1000", vni));
               string tunnel;
               ASSERT_NO_THROW(ctx.findVnetTunnel("Vnet_1000", tunnel));
               ASSERT_NO_THROW(ctx.getAllPorts());
-              ASSERT_NO_THROW(ctx.createNextHopTunnel("tunnel0", IpAddress("10.0.0.1")));
-              ASSERT_NO_THROW(ctx.removeNextHopTunnel("tunnel0", IpAddress("10.0.0.1")));
        }
 }
