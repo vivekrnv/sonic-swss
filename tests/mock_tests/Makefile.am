@@ -70,6 +70,7 @@ tests_SOURCES = aclorch_ut.cpp \
                 dashenifwdorch_ut.cpp \
                 dashorch_ut.cpp \
                 dashvnetorch_ut.cpp \
+                dashhaorch_ut.cpp \
                 dashhafloworch_ut.cpp \
                 dashrouteorch_ut.cpp \
                 dashportmaporch_ut.cpp \

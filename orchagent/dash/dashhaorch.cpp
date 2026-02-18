@@ -448,11 +448,11 @@ bool DashHaOrch::addHaScopeEntry(const std::string &key, const dash::ha_scope::H
             repeated_message = false;
         }
 
-        // if (ha_scope_it->second.metadata.disabled() != entry.disabled())
-        // {
-        //     success = success && setHaScopeDisabled(key, entry.disabled());
-        //     repeated_message = false;
-        // }
+        if (ha_scope_it->second.metadata.disabled() != entry.disabled())
+        {
+            success = success && setHaScopeDisabled(key, entry.disabled());
+            repeated_message = false;
+        }
 
         if (repeated_message)
         {
@@ -499,13 +499,10 @@ bool DashHaOrch::addHaScopeEntry(const std::string &key, const dash::ha_scope::H
     ha_role_attr.value.u16 = to_sai(entry.ha_role());
     ha_scope_attrs.push_back(ha_role_attr);
 
-    // if (entry.has_disabled())
-    // {
-    //     sai_attribute_t disabled_attr = {};
-    //     disabled_attr.id = SAI_HA_SCOPE_ATTR_ADMIN_STATE;
-    //     disabled_attr.value.booldata = !entry.disabled();
-    //     ha_scope_attrs.push_back(disabled_attr);
-    // }
+    sai_attribute_t disabled_attr = {};
+    disabled_attr.id = SAI_HA_SCOPE_ATTR_ADMIN_STATE;
+    disabled_attr.value.booldata = !entry.disabled();
+    ha_scope_attrs.push_back(disabled_attr);
 
     if (entry.has_vip_v4() && entry.vip_v4().has_ipv4())
     {
