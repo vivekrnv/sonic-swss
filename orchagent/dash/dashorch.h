@@ -102,7 +102,8 @@ private:
     bool removeQosEntry(const std::string& qos_name);
     bool setEniRoute(const std::string& eni, const dash::eni_route::EniRoute& entry);
     bool removeEniRoute(const std::string& eni);
-    bool isHaFlowOwnerAttrSupported();
+protected:
+    virtual bool isHaFlowOwnerAttrSupported();
 
 private:
 
