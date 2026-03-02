@@ -28,7 +28,7 @@ void MockOrchTest::initTestLogger(const std::string &appName, int minPrio)
 
 DashOrch* MockOrchTest::CreateDashOrch(swss::DBConnector* app_db, const std::vector<std::string>& dash_tables, swss::DBConnector* state_db, swss::ZmqServer* zmq)
 {
-    return new DashOrch(app_db, dash_tables, state_db, zmq);
+    return new DashOrch(app_db, const_cast<std::vector<std::string>&>(dash_tables), state_db, zmq);
 }
 
 void MockOrchTest::PrepareSai()

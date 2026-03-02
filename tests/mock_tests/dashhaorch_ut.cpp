@@ -52,13 +52,20 @@ namespace dashhaorch_ut
     class DashHaOrchTestable : public DashHaOrch
     {
     public:
+        DashHaOrchTestable(swss::DBConnector* db, const std::vector<std::string>& tableNames,
+                           DashOrch* dash_orch, BfdOrch* bfd_orch,
+                           swss::DBConnector* app_state_db, swss::ZmqServer* zmqServer)
+            : DashHaOrch(db, tableNames, dash_orch, bfd_orch, app_state_db, zmqServer) {}
         void doTask(swss::NotificationConsumer &consumer) { DashHaOrch::doTask(consumer); }
     };
 
     class DashHaOrchAdminStateUnsupported : public DashHaOrchTestable
     {
     public:
-        using DashHaOrchTestable::DashHaOrchTestable;
+        DashHaOrchAdminStateUnsupported(swss::DBConnector* db, const std::vector<std::string>& tableNames,
+                                        DashOrch* dash_orch, BfdOrch* bfd_orch,
+                                        swss::DBConnector* app_state_db, swss::ZmqServer* zmqServer)
+            : DashHaOrchTestable(db, tableNames, dash_orch, bfd_orch, app_state_db, zmqServer) {}
         bool isHaScopeAdminStateAttrSupported() override { return false; }
     };
 
@@ -1091,13 +1098,13 @@ namespace dashhaorch_ut
 
     TEST_F(DashHaOrchTestAdminStateUnsupported, SetHaScopeDisabledWhenAdminStateAttrNotSupported)
     {
-        ApplySaiMock();
         EXPECT_CALL(*mock_sai_dash_ha_api, create_ha_set).Times(1).WillOnce(Return(SAI_STATUS_SUCCESS));
         CreateHaSet();
 
         EXPECT_CALL(*mock_sai_dash_ha_api, create_ha_scope).Times(1).WillOnce(Return(SAI_STATUS_SUCCESS));
         CreateHaScope();
 
+        EXPECT_CALL(*mock_sai_dash_ha_api, set_ha_scope_attribute).Times(1).WillOnce(Return(SAI_STATUS_SUCCESS));
         SetHaScopeHaRole("active");
         EXPECT_FALSE(m_dashHaOrch->getHaScopeEntries().find("HA_SET_1")->second.metadata.disabled());
 

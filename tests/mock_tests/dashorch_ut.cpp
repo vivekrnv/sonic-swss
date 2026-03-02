@@ -95,9 +95,10 @@ namespace dashorch_test
         }
     }
     class DashOrchTest : public MockDashOrchTest, public ::testing::WithParamInterface<std::tuple<ValueOrRange, ValueOrRange>> {
-    private:
+    protected:
         std::unique_ptr<MockDashHaOrch> m_mock_dash_ha_orch;
-        
+
+    private:
         void ApplySaiMock()
         {
             INIT_SAI_API_MOCK(dash_appliance);
@@ -109,9 +110,8 @@ namespace dashorch_test
 
         void PostSetUp()
         {
-            // Skip HA orch mocking for now since the dummy value returned by getHaScopeForEni is causing ENI creation to fail.
-            // m_mock_dash_ha_orch = std::make_unique<MockDashHaOrch>(m_dpu_app_db.get(), std::vector<std::string>{APP_DASH_HA_SET_TABLE_NAME, APP_DASH_HA_SCOPE_TABLE_NAME}, m_DashOrch, nullptr, m_dpu_app_state_db.get(), nullptr);
-            // m_DashOrch->setDashHaOrch(m_mock_dash_ha_orch.get());
+            // Mock is not created here so tests that only need DashOrch (e.g. trusted VNI tests) are not
+            // affected by the dummy getHaScopeForEni(). The two tests that need the mock create it locally.
         }
 
         void PreTearDown() override
@@ -707,6 +707,9 @@ namespace dashorch_test
 
     TEST_F(DashOrchTest, CreateEniWithHaScopeStandbyRole)
     {
+        m_mock_dash_ha_orch = std::make_unique<MockDashHaOrch>(m_dpu_app_db.get(), std::vector<std::string>{APP_DASH_HA_SET_TABLE_NAME, APP_DASH_HA_SCOPE_TABLE_NAME}, m_DashOrch, nullptr, m_dpu_app_state_db.get(), nullptr);
+        m_DashOrch->setDashHaOrch(m_mock_dash_ha_orch.get());
+
         CreateApplianceEntry();
         CreateVnet();
         m_mock_dash_ha_orch->setHaRoleForEni(dash::types::HA_ROLE_STANDBY);
@@ -721,10 +724,15 @@ namespace dashorch_test
 
         SetDashTable(APP_DASH_ENI_TABLE_NAME, eni1, BuildEniEntry());
         VerifyHaFlowOwner(actual_attrs, false);
+
+        m_DashOrch->setDashHaOrch(nullptr);
     }
 
     TEST_F(DashOrchTest, CreateEniWithHaScopeOtherRole)
     {
+        m_mock_dash_ha_orch = std::make_unique<MockDashHaOrch>(m_dpu_app_db.get(), std::vector<std::string>{APP_DASH_HA_SET_TABLE_NAME, APP_DASH_HA_SCOPE_TABLE_NAME}, m_DashOrch, nullptr, m_dpu_app_state_db.get(), nullptr);
+        m_DashOrch->setDashHaOrch(m_mock_dash_ha_orch.get());
+
         CreateApplianceEntry();
         CreateVnet();
         m_mock_dash_ha_orch->setHaRoleForEni(dash::types::HA_ROLE_SWITCHING_TO_ACTIVE);
@@ -739,6 +747,8 @@ namespace dashorch_test
 
         SetDashTable(APP_DASH_ENI_TABLE_NAME, eni1, BuildEniEntry());
         VerifyHaFlowOwner(actual_attrs, false);
+
+        m_DashOrch->setDashHaOrch(nullptr);
     }
 
     class DashOrchTestHaFlowOwnerNotSupported : public DashOrchTest
