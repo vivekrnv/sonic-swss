@@ -30,6 +30,16 @@ namespace dashhafloworch_ut
         void handleTimerExpired(swss::SelectableTimer *timer) { DashHaFlowOrch::handleTimerExpired(timer); }
         swss::SelectableTimer* getSyncTimer() { return m_sync_timer; }
         swss::SelectableTimer* getDumpTimer() { return m_dump_timer; }
+        // For testing: invoke handler's handleDel with arbitrary table_name to cover branches
+        task_process_status invokeHandlerHandleDel(const std::string &key, const std::string &table_name)
+        {
+            for (auto &h_pair : m_handlers)
+            {
+                if (h_pair.second->getKey() == key)
+                    return h_pair.second->handleDel(table_name, key);
+            }
+            return task_failed;
+        }
     };
 
     class DashHaFlowOrchTest : public MockOrchTest
@@ -480,6 +490,112 @@ namespace dashhafloworch_ut
             .Times(0);
 
         CreateFlowDumpFilter("FILTER_1", "eni_addr", "invalid_op", "00:11:22:33:44:55");
+    }
+
+    TEST_F(DashHaFlowOrchTest, CreateFlowDumpFilterSrcIpAddr)
+    {
+        // Cover IP address filter key branch (src_ip_addr) in createFilterSAI
+        sai_object_id_t filter_id = 0x2000000000000001;
+        EXPECT_CALL(*mock_sai_dash_flow_api, create_flow_entry_bulk_get_session_filter)
+            .Times(1)
+            .WillOnce(DoAll(SetArgPointee<0>(filter_id), Return(SAI_STATUS_SUCCESS)));
+
+        CreateFlowDumpFilter("FILTER_SRC_IP", "src_ip_addr", "equal_to", "10.0.0.1");
+    }
+
+    TEST_F(DashHaFlowOrchTest, CreateFlowDumpFilterDstIpAddr)
+    {
+        // Cover IP address filter key branch (dst_ip_addr) in createFilterSAI
+        sai_object_id_t filter_id = 0x2000000000000002;
+        EXPECT_CALL(*mock_sai_dash_flow_api, create_flow_entry_bulk_get_session_filter)
+            .Times(1)
+            .WillOnce(DoAll(SetArgPointee<0>(filter_id), Return(SAI_STATUS_SUCCESS)));
+
+        CreateFlowDumpFilter("FILTER_DST_IP", "dst_ip_addr", "equal_to", "192.168.1.100");
+    }
+
+    TEST_F(DashHaFlowOrchTest, BulkSyncHandleDelReturnsFailed)
+    {
+        // Cover BulkSyncHandler::handleDel - delete not supported, returns task_failed
+        sai_object_id_t session_id = 0x1000000000000001;
+        EXPECT_CALL(*mock_sai_dash_flow_api, create_flow_entry_bulk_get_session)
+            .Times(1)
+            .WillOnce(DoAll(SetArgPointee<0>(session_id), Return(SAI_STATUS_SUCCESS)));
+
+        CreateFlowSyncSession("SYNC_SESSION_1", "", "192.168.1.1", "8080");
+
+        // DEL should not call SAI remove - handleDel returns task_failed and does not delete
+        EXPECT_CALL(*mock_sai_dash_flow_api, remove_flow_entry_bulk_get_session).Times(0);
+        RemoveFlowSyncSession("SYNC_SESSION_1");
+
+        // Session should still exist in state (handler still holds it)
+        swss::Table state_table(m_dpu_state_db.get(), STATE_DASH_FLOW_SYNC_SESSION_STATE_TABLE_NAME);
+        vector<FieldValueTuple> fvs;
+        ASSERT_TRUE(state_table.get("SYNC_SESSION_1", fvs));
+    }
+
+    TEST_F(DashHaFlowOrchTest, FlowDumpHandleDelKnownTableReturnsFailed)
+    {
+        // Cover FlowDumpHandler::handleDel when table_name == APP_DASH_FLOW_SYNC_SESSION_TABLE_NAME
+        sai_object_id_t filter_id = 0x2000000000000001;
+        sai_object_id_t session_id = 0x1000000000000001;
+        EXPECT_CALL(*mock_sai_dash_flow_api, create_flow_entry_bulk_get_session_filter)
+            .Times(1)
+            .WillOnce(DoAll(SetArgPointee<0>(filter_id), Return(SAI_STATUS_SUCCESS)));
+        EXPECT_CALL(*mock_sai_dash_flow_api, create_flow_entry_bulk_get_session)
+            .Times(1)
+            .WillOnce(DoAll(SetArgPointee<0>(session_id), Return(SAI_STATUS_SUCCESS)));
+
+        CreateFlowDumpFilter("FILTER_1", "eni_addr", "equal_to", "00:11:22:33:44:55");
+        CreateFlowDumpSession("DUMP_SESSION_1", "true", "1000", "300", {"FILTER_1"});
+
+        // DEL should not call SAI remove - handleDel returns task_failed
+        EXPECT_CALL(*mock_sai_dash_flow_api, remove_flow_entry_bulk_get_session).Times(0);
+        RemoveFlowDumpSession("DUMP_SESSION_1");
+
+        swss::Table state_table(m_dpu_state_db.get(), STATE_DASH_FLOW_SYNC_SESSION_STATE_TABLE_NAME);
+        vector<FieldValueTuple> fvs;
+        ASSERT_TRUE(state_table.get("DUMP_SESSION_1", fvs));
+    }
+
+    TEST_F(DashHaFlowOrchTest, FlowDumpHandleDelUnknownTableReturnsFailed)
+    {
+        // Cover FlowDumpHandler::handleDel else branch (unknown table)
+        sai_object_id_t filter_id = 0x2000000000000001;
+        sai_object_id_t session_id = 0x1000000000000001;
+        EXPECT_CALL(*mock_sai_dash_flow_api, create_flow_entry_bulk_get_session_filter)
+            .Times(1)
+            .WillOnce(DoAll(SetArgPointee<0>(filter_id), Return(SAI_STATUS_SUCCESS)));
+        EXPECT_CALL(*mock_sai_dash_flow_api, create_flow_entry_bulk_get_session)
+            .Times(1)
+            .WillOnce(DoAll(SetArgPointee<0>(session_id), Return(SAI_STATUS_SUCCESS)));
+
+        CreateFlowDumpFilter("FILTER_1", "eni_addr", "equal_to", "00:11:22:33:44:55");
+        CreateFlowDumpSession("DUMP_SESSION_1", "true", "1000", "300", {"FILTER_1"});
+
+        task_process_status status = m_dashHaFlowOrch->invokeHandlerHandleDel("DUMP_SESSION_1", "UNKNOWN_TABLE");
+        ASSERT_EQ(status, task_failed);
+    }
+
+    TEST_F(DashHaFlowOrchTest, InvokeHandlerHandleDelKnownTable)
+    {
+        // invokeHandlerHandleDel with known table: delegates to handler, returns task_failed (delete not supported)
+        sai_object_id_t session_id = 0x1000000000000001;
+        EXPECT_CALL(*mock_sai_dash_flow_api, create_flow_entry_bulk_get_session)
+            .Times(1)
+            .WillOnce(DoAll(SetArgPointee<0>(session_id), Return(SAI_STATUS_SUCCESS)));
+
+        CreateFlowSyncSession("SYNC_SESSION_1", "", "192.168.1.1", "8080");
+
+        task_process_status status = m_dashHaFlowOrch->invokeHandlerHandleDel("SYNC_SESSION_1", APP_DASH_FLOW_SYNC_SESSION_TABLE_NAME);
+        ASSERT_EQ(status, task_failed);
+    }
+
+    TEST_F(DashHaFlowOrchTest, InvokeHandlerHandleDelKeyNotFound)
+    {
+        // invokeHandlerHandleDel with key not in any handler: returns task_failed
+        task_process_status status = m_dashHaFlowOrch->invokeHandlerHandleDel("NONEXISTENT_SESSION", APP_DASH_FLOW_SYNC_SESSION_TABLE_NAME);
+        ASSERT_EQ(status, task_failed);
     }
 
     TEST_F(DashHaFlowOrchTest, RemoveFlowDumpFilter)

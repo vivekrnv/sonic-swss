@@ -14,6 +14,7 @@
 #include "schema.h"
 
 #include <chrono>
+#include <cinttypes>
 #include <sstream>
 #include <iomanip>
 #include <map>
@@ -90,7 +91,7 @@ task_process_status FlowDumpFilterManager::addFilter(const string &key, const ve
     entry.filter_id = filter_id;
     m_filter_cache[key] = entry;
 
-    SWSS_LOG_NOTICE("Created flow dump filter %s with filter_id 0x%lx", key.c_str(), filter_id);
+    SWSS_LOG_NOTICE("Created flow dump filter %s with filter_id 0x%" PRIx64, key.c_str(), static_cast<uint64_t>(filter_id));
 
     return task_success;
 }
@@ -227,7 +228,7 @@ bool FlowDumpFilterManager::deleteFilterSAI(sai_object_id_t filter_id)
 
     if (status != SAI_STATUS_SUCCESS)
     {
-        SWSS_LOG_ERROR("Failed to delete flow bulk get session filter 0x%lx, status: %d", filter_id, status);
+        SWSS_LOG_ERROR("Failed to delete flow bulk get session filter 0x%" PRIx64 ", status: %d", static_cast<uint64_t>(filter_id), status);
         return false;
     }
 
@@ -267,7 +268,7 @@ bool FlowApiHandler::deleteSessionSAI()
 
     if (status != SAI_STATUS_SUCCESS)
     {
-        SWSS_LOG_ERROR("Failed to delete flow bulk get session 0x%lx, status: %d", m_session_id, status);
+        SWSS_LOG_ERROR("Failed to delete flow bulk get session 0x%" PRIx64 ", status: %d", static_cast<uint64_t>(m_session_id), status);
         return false;
     }
 
@@ -449,7 +450,7 @@ task_process_status BulkSyncHandler::createSession()
     m_timer->start();
 
     FlowApiHandler::updateState("created", m_key, {{"type", DashHaFlowOrch::SESSION_TYPE_BULK_SYNC}});
-    SWSS_LOG_NOTICE("Created flow sync session %s with session_id 0x%lx, timeout %u sec", m_key.c_str(), session_id, m_timeout_sec);
+    SWSS_LOG_NOTICE("Created flow sync session %s with session_id 0x%" PRIx64 ", timeout %u sec", m_key.c_str(), static_cast<uint64_t>(session_id), m_timeout_sec);
 
     return task_success;
 }
@@ -607,7 +608,7 @@ task_process_status FlowDumpHandler::createSession()
 
     FlowApiHandler::updateState("created", m_key, {{"type", DashHaFlowOrch::SESSION_TYPE_FLOW_DUMP}});
 
-    SWSS_LOG_NOTICE("Created flow dump session %s with session_id 0x%lx, timeout %u sec", m_key.c_str(), session_id, m_timeout_sec);
+    SWSS_LOG_NOTICE("Created flow dump session %s with session_id 0x%" PRIx64 ", timeout %u sec", m_key.c_str(), static_cast<uint64_t>(session_id), m_timeout_sec);
 
     return task_success;
 }
@@ -1008,7 +1009,7 @@ void DashHaFlowOrch::handleSessionFinished(sai_object_id_t session_id)
         if (h_pair.second->getSessionId() == session_id)
         {
             h_pair.second->handleFinished();
-            SWSS_LOG_NOTICE("Session ID 0x%lx finished (type: %s)", session_id, h_pair.first.c_str());
+            SWSS_LOG_NOTICE("Session ID 0x%" PRIx64 " finished (type: %s)", static_cast<uint64_t>(session_id), h_pair.first.c_str());
             found = true;
             break;
         }
@@ -1016,7 +1017,7 @@ void DashHaFlowOrch::handleSessionFinished(sai_object_id_t session_id)
 
     if (!found)
     {
-        SWSS_LOG_WARN("Received FINISHED notification for unknown session 0x%lx", session_id);
+        SWSS_LOG_WARN("Received FINISHED notification for unknown session 0x%" PRIx64, static_cast<uint64_t>(session_id));
     }
 }
 
