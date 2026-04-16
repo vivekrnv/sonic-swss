@@ -11,7 +11,6 @@
 #include "macaddress.h"
 #include "swssnet.h"
 #include "schema.h"
-#include "schema.h"
 
 #include <chrono>
 #include <cinttypes>
@@ -52,6 +51,12 @@ static const map<string, sai_dash_flow_entry_bulk_get_session_op_key_t> filter_o
 task_process_status FlowDumpFilterManager::addFilter(const string &key, const vector<FieldValueTuple> &attrs)
 {
     SWSS_LOG_ENTER();
+
+    if (m_filter_cache.find(key) != m_filter_cache.end())
+    {
+        SWSS_LOG_NOTICE("Flow dump filter %s already exists, skipping add", key.c_str());
+        return task_success;
+    }
 
     FlowDumpFilterEntry entry;
     entry.filter_id = SAI_NULL_OBJECT_ID;

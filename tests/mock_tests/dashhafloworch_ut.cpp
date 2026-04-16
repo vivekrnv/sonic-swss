@@ -401,19 +401,17 @@ namespace dashhafloworch_ut
         // Verify second session failed (should have failed state in STATE_DB)
         swss::Table state_table(m_dpu_state_db.get(), STATE_DASH_FLOW_SYNC_SESSION_STATE_TABLE_NAME);
         vector<FieldValueTuple> fvs;
-        if (state_table.get("SYNC_SESSION_2", fvs))
+        ASSERT_TRUE(state_table.get("SYNC_SESSION_2", fvs));
+        bool found_failed = false;
+        for (const auto &fv : fvs)
         {
-            bool found_failed = false;
-            for (const auto &fv : fvs)
+            if (fvField(fv) == "state" && fvValue(fv) == "failed")
             {
-                if (fvField(fv) == "state" && fvValue(fv) == "failed")
-                {
-                    found_failed = true;
-                    break;
-                }
-            }
-            ASSERT_TRUE(found_failed) << "Second session should have failed state";
+                found_failed = true;
+                break;
+            }   
         }
+        ASSERT_TRUE(found_failed) << "Second session should have failed state";
     }
 
     TEST_F(DashHaFlowOrchTest, CreateFlowSyncSessionSAIFailure)
