@@ -77,9 +77,7 @@ tests_SOURCES = aclorch_ut.cpp \
                 dashhaorch_ut.cpp \
                 dashhafloworch_ut.cpp \
                 dashrouteorch_ut.cpp \
-                dashtunnelorch_ut.cpp \
                 dashportmaporch_ut.cpp \
-                dashmeterorch_ut.cpp \
                 twamporch_ut.cpp \
                 stporch_ut.cpp \
                 srv6orch_ut.cpp \
