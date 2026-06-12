@@ -4,7 +4,6 @@
 #include <swss/ipaddress.h>
 
 #include <swssnet.h>
-#include <exception>
 
 #include "dashaclorch.h"
 #include "taskworker.h"
@@ -127,29 +126,36 @@ void DashAclOrch::doTask(ConsumerBase &consumer)
     auto itr = consumer.m_toSync.begin();
     while (itr != consumer.m_toSync.end())
     {
+        task_process_status task_status = task_failed;
         auto &message = itr->second;
-        const string &key = kfvKey(message);
         const string &op = kfvOp(message);
 
-        try
+        auto task = TaskMap.find(make_tuple(table_name, op));
+        if (task != TaskMap.end())
         {
-            task_process_status task_status = task_failed;
-            auto task = TaskMap.find(make_tuple(table_name, op));
-            if (task != TaskMap.end())
-            {
-                task_status = task->second->process(key, kfvFieldsValues(message));
-            }
-            else
-            {
-                SWSS_LOG_ERROR(
-                    "Unknown task : %s - %s",
-                    table_name.c_str(),
-                    op.c_str());
-            }
+            task_status = task->second->process(kfvKey(message), kfvFieldsValues(message));
+        }
+        else
+        {
+            SWSS_LOG_ERROR(
+                "Unknown task : %s - %s",
+                table_name.c_str(),
+                op.c_str());
+        }
 
+        if (task_status == task_need_retry)
+        {
+            SWSS_LOG_DEBUG(
+                "Task %s - %s need retry",
+                table_name.c_str(),
+                op.c_str());
+            ++itr;
+        }
+        else
+        {
             if (task_status != task_success)
             {
-                SWSS_LOG_ERROR("Task %s - %s failed",
+                SWSS_LOG_WARN("Task %s - %s fail",
                               table_name.c_str(),
                               op.c_str());
             }
@@ -161,11 +167,6 @@ void DashAclOrch::doTask(ConsumerBase &consumer)
                     op.c_str());
             }
 
-            itr = consumer.m_toSync.erase(itr);
-        }
-        catch (const std::exception& e)
-        {
-            SWSS_LOG_ERROR("Exception caught processing %s entry %s: %s", table_name.c_str(), key.c_str(), e.what());
             itr = consumer.m_toSync.erase(itr);
         }
     }
