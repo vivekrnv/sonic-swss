@@ -41,7 +41,6 @@ struct MeterRuleBulkContext
     dash::meter_rule::MeterRule metadata;
     std::deque<sai_object_id_t> object_ids;
     std::deque<sai_status_t> object_statuses;
-    uint32_t pre_op_result = DASH_RESULT_SUCCESS;
     MeterRuleBulkContext() {}
     MeterRuleBulkContext(const MeterRuleBulkContext&) = delete;
     MeterRuleBulkContext(MeterRuleBulkContext&&) = delete;
@@ -49,7 +48,6 @@ struct MeterRuleBulkContext
     void clear()
     {
         object_statuses.clear();
-        pre_op_result = DASH_RESULT_SUCCESS;
     }
 };
 
