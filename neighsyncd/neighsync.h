@@ -3,7 +3,6 @@
 
 #include "dbconnector.h"
 #include "producerstatetable.h"
-#include "subscriberstatetable.h"
 #include "netmsg.h"
 #include "warmRestartAssist.h"
 
@@ -24,38 +23,23 @@ class NeighSync : public NetMsg
 public:
     enum { MAX_ADDR_SIZE = 64 };
 
-    NeighSync(RedisPipeline *pipelineAppDB, DBConnector *stateDb, DBConnector *cfgDb, DBConnector *appDb);
+    NeighSync(RedisPipeline *pipelineAppDB, DBConnector *stateDb, DBConnector *cfgDb);
     ~NeighSync();
 
     virtual void onMsg(int nlmsg_type, struct nl_object *obj);
 
     bool isNeighRestoreDone();
 
-    /* Get interface name based on interface index */
-    bool getIfName(int if_index, char *if_name, size_t name_len);
-
     AppRestartAssist *getRestartAssist()
     {
         return m_AppRestartAssist;
     }
 
-    SubscriberStateTable *getCfgEvpnNvoTable()
-    {
-        return &m_cfgEvpnNvoTable;
-    }
-
-    void processCfgEvpnNvo();
-
 private:
-    Table m_stateNeighRestoreTable, m_cfgPeerSwitchTable, m_routeCheckTable;
+    Table m_stateNeighRestoreTable, m_cfgPeerSwitchTable;
     ProducerStateTable m_neighTable;
-    ProducerStateTable m_routeTable;
-    SubscriberStateTable m_cfgEvpnNvoTable;
-    struct nl_cache    *m_link_cache;
-    struct nl_sock     *m_nl_sock;
     AppRestartAssist  *m_AppRestartAssist;
     Table m_cfgVlanInterfaceTable, m_cfgLagInterfaceTable, m_cfgInterfaceTable;
-    bool m_isEvpnNvoExist = false;
 
     bool isLinkLocalEnabled(const std::string &port);
 };

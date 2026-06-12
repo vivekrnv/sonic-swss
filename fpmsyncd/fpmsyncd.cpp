@@ -98,8 +98,6 @@ int main(int argc, char **argv)
     NetDispatcher::getInstance().registerMessageHandler(RTM_DELROUTE, &sync);
     NetDispatcher::getInstance().registerMessageHandler(RTM_NEWLINK, &sync);
     NetDispatcher::getInstance().registerMessageHandler(RTM_DELLINK, &sync);
-    NetDispatcher::getInstance().registerMessageHandler(RTM_NEWTFILTER, &sync);
-    NetDispatcher::getInstance().registerMessageHandler(RTM_DELTFILTER, &sync);
 
     struct stat st;
     auto routeProtoFilePath = DefaultRtProtoPath;

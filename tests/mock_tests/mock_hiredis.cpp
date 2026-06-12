@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <unistd.h>
 #include <hiredis/hiredis.h>
 #include <iostream>
 
@@ -38,29 +37,4 @@ int redisAppendCommand(redisContext *c, const char *format, ...)
 int redisGetReplyFromReader(redisContext *c, void **reply)
 {
     return 0;
-}
-
-void redisFree(redisContext *c)
-{
-    if (c == nullptr)
-    {
-        return;
-    }
-
-    if (c->fd >= 0)
-    {
-        close(c->fd);
-        c->fd = -1;
-    }
-
-    if (c->connection_type == REDIS_CONN_TCP)
-    {
-        free(c->tcp.host);
-    }
-    else if (c->connection_type == REDIS_CONN_UNIX)
-    {
-        free(c->unix_sock.path);
-    }
-
-    free(c);
 }

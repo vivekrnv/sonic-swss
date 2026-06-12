@@ -130,11 +130,6 @@ FlexCounterManager::~FlexCounterManager()
 {
     SWSS_LOG_ENTER();
 
-    if (group_name.empty())
-    {
-        return;
-    }
-
     for (const auto& counter: installed_counters)
     {
         stopFlexCounterPolling(counter.second, getFlexCounterTableKey(group_name, counter.first));
